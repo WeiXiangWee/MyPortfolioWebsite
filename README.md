@@ -2,7 +2,7 @@
 
 Portfolio site for **wx**, a full-stack student who connects design, code and deployment, turning rough ideas into working products.
 
-The site is a cosy isometric pixel-art room at dusk. Hold the mouse button and drag to turn the room; let go and it eases back. Each object on the desk opens a section in a retro OS-style window. A plain text menu at the top does the same for anyone who doesn't want to explore the room.
+The site is a cosy pixel-art room at dusk, built as a real 3D diorama with CSS 3D transforms. Hold the mouse button and drag to turn the room; let go and it eases back. Each object on the desk opens a section in a retro OS-style window. A plain text menu at the top does the same for anyone who doesn't want to explore the room.
 
 Built with **React (Vite), JavaScript and plain CSS** only. No animation or UI libraries; motion uses CSS transitions, transforms, `IntersectionObserver` and small React hooks. React Router handles the URLs.
 
@@ -12,7 +12,7 @@ Built with **React (Vite), JavaScript and plain CSS** only. No animation or UI l
 npm install
 npm run dev      # http://localhost:5173
 npm run build    # production build in dist/
-npm run art      # redraw the pixel room, cursors, favicon and sounds
+npm run art      # rebuild the 3D room textures, cursors, favicon and sounds
 ```
 
 ## Where things live
@@ -22,11 +22,11 @@ npm run art      # redraw the pixel room, cursors, favicon and sounds
 | **All text content** (placeholders in `[BRACKETS]`) | `src/data/content.js` |
 | Which object opens which section + URLs | `src/data/sections.js` |
 | Design tokens: colours, fonts, sizes, motion | `src/styles/tokens.css` |
-| Room: drag to turn, zoom, clickable objects | `src/components/Room.jsx`, `Room.css` |
+| 3D room: camera, drag to turn, zoom, clickable objects | `src/components/Room.jsx`, `Room.css` |
 | Retro window (focus trap, Esc, scroll) | `src/components/RetroWindow.jsx` |
 | Section contents | `src/sections/*.jsx` |
-| Pixel art generator | `scripts/draw-room.mjs` |
-| Room positions + hit polygons (generated) | `src/scene/sceneLayout.js` |
+| 3D room builder (shapes + pixel textures) | `scripts/build-room3d.mjs` |
+| Face positions + texture atlas (generated) | `src/scene/scene3d.js`, `public/room3d/` |
 
 ## Routes
 
@@ -43,13 +43,16 @@ npm run art      # redraw the pixel room, cursors, favicon and sounds
 
 The floppy disk on the desk is the **Download CV** button, and clicking the **floor lamp** switches its warm light on and off. The desk clock shows the real time in Singapore, and that time sets the sky outside the window (dawn / day / dusk / night). Add `?sky=day` (or `dawn`, `dusk`, `night`) to any URL to preview another sky.
 
-## Replacing the pixel art with your own
+## How the 3D room works
 
-The room in `public/room/` is placeholder art drawn by `scripts/draw-room.mjs` on a 2:1 isometric grid (canvas 800 × 640, shown at whole-number scales so pixels stay crisp). It uses dithered light and shadow, 1px edge highlights and dark inner outlines. To use your own Piskel/Figma drawings:
+`scripts/build-room3d.mjs` describes the room as boxes and flat panels in "room units" (the room is 160 × 130 units, 130 high). For every visible face it paints a small pixel-art texture (2 art pixels per unit) using dithered light and shadow, 1px edge highlights and ambient shadows, then packs all textures into one atlas (`public/room3d/atlas.png`). It writes each face's size, atlas position and `matrix3d` placement to `src/scene/scene3d.js`.
 
-1. Keep the same file names. `walls.png`, `lamp-glow.png`, `furniture.png` and `decor.png` are full 800 × 640 layers. Each `obj-*.png` is cropped to its object (the lamp has `obj-lamp.png` for on and `obj-lamp-off.png` for off).
-2. If an object's shape or position changes, update its `x`, `y`, `polygon` (clickable area) and `center` (zoom target) in `src/scene/sceneLayout.js`.
-3. Leave the window glass transparent in `walls.png`, because the CSS sky shows through it.
+`Room.jsx` renders each face as a `div` inside a CSS 3D camera (`perspective` + `rotateX` + `rotateZ`). The browser does the rest: depth sorting, perspective and real parallax when you drag. The camera always looks from the open front of the room, so only the top, front and right side of each box are drawn.
+
+- The **sky and city** are a separate panel outside the window, so they shift behind the glass as the room turns.
+- **Plants** are two crossed see-through panels; tooltips and the lamp's halo always turn to face you.
+- The **monitor text** and **desk clock** are real HTML laid onto 3D faces.
+- To change the room, edit `build-room3d.mjs` and run `npm run art`. Image URLs get a `?v=` fingerprint, so browsers always pick up new art.
 
 ## Filling in content
 
@@ -59,7 +62,7 @@ In `index.html`, set `og:image` and `og:url` once the site has a live URL.
 
 ## Accessibility
 
-- Every room object is a real `<button>` with a label, reachable by Tab, with an `--color-accent-2` outline on focus.
+- Every room object is a labelled button (`role="button"`), reachable by Tab and opened with Enter or Space; its faces show an `--color-accent-2` ring on focus.
 - Windows trap focus, close with Esc / x / the dimmed background, and return focus to the object that opened them.
 - `prefers-reduced-motion` turns off drag-to-turn, the zoom animation, typing and reveals; windows just appear.
 - All text colours pass WCAG AA against their backgrounds.

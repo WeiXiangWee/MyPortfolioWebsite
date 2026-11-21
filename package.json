@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "art": "node scripts/draw-room.mjs && node scripts/make-extras.mjs"
+    "art": "node scripts/build-room3d.mjs && node scripts/make-extras.mjs"
   },
   "dependencies": {
     "react": "^19.3.1",

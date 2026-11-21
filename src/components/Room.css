@@ -1,24 +1,20 @@
 /* =========================================================
-   The Workbench room
-   stage (perspective, overflow hidden)
-     └ zoom container (translate + scale = the "camera")
-         └ tilt container (rotateX / rotateY from the mouse)
-             └ layers + objects (translateZ depths)
+   The Workbench: a CSS 3D diorama
+   stage → world (lighting) → camera (perspective + rotation + zoom) → groups → faces
    ========================================================= */
 
 .room-stage {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  transition: perspective-origin var(--dur-reveal) var(--ease);
 
   /* Sky + room lighting for each time of day (Dusk is the default palette) */
   --sky-top: var(--scene-sky);
   --sky-bottom: var(--scene-horizon);
   --sun-color: var(--scene-sun);
-  --sun-x: 40px;
-  --sun-y: 84px;
-  --sun-size: 28px;
+  --sun-x: 28%;
+  --sun-y: 42%;
+  --sun-size: 40px;
   --stars: 0.35;
   --lights: 0.9;
   --spill: color-mix(in srgb, var(--scene-sun) 14%, transparent);
@@ -32,8 +28,8 @@
   --sky-top: var(--scene-sky-dawn);
   --sky-bottom: var(--scene-horizon-dawn);
   --sun-color: var(--scene-sun-dawn);
-  --sun-x: 68px;
-  --sun-y: 72px;
+  --sun-x: 58%;
+  --sun-y: 38%;
   --stars: 0.1;
   --lights: 0.5;
   --spill: color-mix(in srgb, var(--scene-sun-dawn) 14%, transparent);
@@ -43,9 +39,9 @@
   --sky-top: var(--scene-sky-day);
   --sky-bottom: var(--scene-horizon-day);
   --sun-color: var(--scene-sun-day);
-  --sun-x: 56px;
-  --sun-y: 16px;
-  --sun-size: 24px;
+  --sun-x: 46%;
+  --sun-y: 16%;
+  --sun-size: 34px;
   --stars: 0;
   --lights: 0;
   --spill: color-mix(in srgb, var(--scene-sun-day) 20%, transparent);
@@ -55,34 +51,81 @@
   --sky-top: var(--scene-sky-night);
   --sky-bottom: var(--scene-horizon-night);
   --sun-color: var(--scene-moon);
-  --sun-x: 24px;
-  --sun-y: 20px;
-  --sun-size: 16px;
+  --sun-x: 24%;
+  --sun-y: 20%;
+  --sun-size: 24px;
   --stars: 1;
   --lights: 1;
   --spill: color-mix(in srgb, var(--color-accent-2) 8%, transparent);
   --room-light: brightness(0.84) saturate(0.85) sepia(0);
 }
 
-.room-zoom {
+/* Lighting applies to the finished 3D picture (cheap: one filter, not one per face) */
+.room-world {
   position: absolute;
-  left: 0;
-  top: 0;
-  transform-origin: 50% 50%;
-  transform-style: preserve-3d;
-  transition: transform var(--dur-reveal) var(--ease);
-  will-change: transform;
-  /* The containers' own flat boxes would sit in front of the parts of the room tilted away
-     from you and swallow clicks, so only the object buttons take the pointer. */
+  inset: 0;
+  filter: var(--room-light) var(--lamp-boost);
+  transition: filter var(--dur-window) var(--ease);
   pointer-events: none;
 }
 
-.room-tilt {
+.room-camera {
+  --rx: 60deg;
+  --rz: 45deg;
   position: absolute;
-  inset: 0;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
   transform-style: preserve-3d;
-  transform: rotateX(var(--rx, 6deg)) rotateY(var(--ry, -6deg));
-  transition: transform var(--dur-reveal) var(--ease); /* slow settle when you let go */
+  transition: transform var(--dur-reveal) var(--ease); /* zooming + easing back after a drag */
+  will-change: transform;
+}
+
+/* A group = one thing in the room (walls, desk, the monitor…) */
+.g {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-style: preserve-3d;
+  pointer-events: none;
+}
+.g:focus {
+  outline: none; /* the object's faces show the focus ring instead (below) */
+}
+
+/* A face = one flat pixel-art panel, cut out of the texture atlas */
+.f {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  background-image: var(--atlas);
+  background-size: var(--atlas-size);
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  backface-visibility: hidden;
+}
+.f--double {
+  backface-visibility: visible; /* see-through panels like plant leaves */
+}
+
+/* ---------- Opening: the room drops into place, piece by piece ---------- */
+.room-stage.is-loading .room-camera {
+  visibility: hidden;
+}
+.room-stage.is-loaded .g {
+  animation: room-drop-in var(--dur-reveal) var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 90ms);
+}
+@keyframes room-drop-in {
+  from {
+    translate: 0 0 160px;
+  }
+  to {
+    translate: 0 0 0;
+  }
 }
 
 /* ---------- Hold and drag to turn the room ---------- */
@@ -91,7 +134,7 @@
   user-select: none;
   touch-action: none;
 }
-.room-stage.is-dragging .room-tilt {
+.room-stage.is-dragging .room-camera {
   transition-duration: var(--dur-fast); /* follow the pointer closely while dragging */
 }
 .room-stage.is-dragging,
@@ -99,36 +142,78 @@
   cursor: var(--cursor-grabbing);
 }
 
-.room-layer,
-.room-obj {
-  position: absolute;
+/* ---------- Clickable objects ---------- */
+.g--obj .f {
+  pointer-events: auto;
+  cursor: var(--cursor-pointer);
+  transition: filter var(--dur-fast) var(--ease);
+}
+.room-stage.is-inert .g--obj .f {
   pointer-events: none;
 }
-.room-layer {
-  inset: 0;
+/* hover: faces brighten and get a 1px lavender edge (a retro "selected" look) */
+.g--obj.is-hot .f {
+  filter: brightness(1.2);
+}
+.g--obj.is-hot .f:not(.f--double) {
+  box-shadow: inset 0 0 0 1px var(--color-accent-2);
+}
+/* keyboard focus: a stronger 2px ring */
+.g--obj:focus-visible .f:not(.f--double) {
+  box-shadow: inset 0 0 0 2px var(--color-accent-2);
 }
 
-.room-art {
-  width: 100%;
-  height: 100%;
-  image-rendering: pixelated;
-  filter: var(--room-light) var(--lamp-boost);
-  transition: filter var(--dur-window) var(--ease);
-  user-select: none;
-  -webkit-user-drag: none;
+/* "Explore the desk": each object flashes once */
+.g--obj.is-pinging .f:not(.f--double) {
+  animation: room-ping 0.9s var(--ease) var(--ping-delay) 2 both;
+}
+@keyframes room-ping {
+  50% {
+    box-shadow: inset 0 0 0 2px var(--color-accent-2);
+    filter: brightness(1.25);
+  }
+}
+
+/* Hover label like "> projects.exe": a small sign parallel to the object's front,
+   standing just in front of it, so it never cuts into a wall */
+.room-tip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  width: max-content; /* the box hugs the sign exactly */
+  backface-visibility: hidden;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+.room-tip > span {
+  display: block;
+  padding: 4px 10px; /* keep in sync with LABEL in Room.jsx */
+  border: 2px solid var(--color-accent-2);
+  background: var(--color-surface);
+  box-shadow: 4px 4px 0 var(--color-shadow);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.g--obj.is-hot .room-tip {
+  opacity: 1;
+}
+.room-stage.is-zoomed .room-tip,
+.room-stage.is-dragging .room-tip {
+  display: none;
 }
 
 /* ---------- Floor lamp light (click the lamp to switch it on/off) ---------- */
-.room-lamp-glow {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  image-rendering: pixelated;
+.g--glow .f {
   opacity: 0;
   transition: opacity var(--dur-window) var(--ease);
 }
-.room-stage.lamp-on .room-lamp-glow {
+.room-stage.lamp-on .g--glow .f {
   opacity: 1;
   animation: lamp-flicker 0.45s steps(1);
 }
@@ -150,111 +235,31 @@
   }
 }
 
-/* ---------- Opening: the room loads in, layer by layer ---------- */
-.room-stage.is-loading .room-layer,
-.room-stage.is-loading .room-obj {
-  opacity: 0;
-}
-.room-stage.is-loaded .room-layer,
-.room-stage.is-loaded .room-obj {
-  animation: room-drop-in var(--dur-reveal) var(--ease) both;
-  animation-delay: calc(var(--i) * 120ms);
-}
-@keyframes room-drop-in {
-  from {
-    opacity: 0;
-    translate: 0 -14px;
-  }
-  to {
-    opacity: 1;
-    translate: 0 0;
-  }
-}
-
 /* ---------- Light from the window onto the floor ---------- */
 .room-floor-light {
   position: absolute;
-  inset: 0;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
   background: var(--spill);
   transition: background-color 4s var(--ease);
 }
 
-/* ---------- Clickable objects ---------- */
-.room-hit {
+/* ---------- Monitor screen + desk clock (HTML placed on the 3D faces) ---------- */
+.room-screen,
+.room-clock {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  pointer-events: auto;
-  cursor: var(--cursor-pointer);
-}
-.room-hit:focus-visible {
-  outline: none; /* the clip-path would cut it off; the object glows instead (below) */
-}
-.room-obj.is-hot .room-art {
-  filter: var(--room-light) var(--lamp-boost) var(--glow-hover);
-  transition-duration: var(--dur-fast);
-}
-.room-obj:has(.room-hit:focus-visible) .room-art {
-  filter: var(--room-light) var(--lamp-boost) var(--glow-hover) var(--glow-hover); /* 2px ring for keyboard focus */
-}
-.room-stage.is-inert .room-hit {
-  pointer-events: none;
-}
-
-/* "Explore the desk": each object flashes its outline once */
-.room-obj.is-pinging .room-art {
-  animation: room-ping 0.9s var(--ease) var(--ping-delay) 2 both;
-}
-@keyframes room-ping {
-  0%,
-  100% {
-    filter: var(--room-light) var(--lamp-boost);
-  }
-  50% {
-    filter: var(--room-light) var(--lamp-boost) var(--glow-hover) var(--glow-hover);
-  }
-}
-
-/* Tooltip like "> projects.exe". Sizes are divided by --s so they stay the same on screen. */
-.room-tip {
-  position: absolute;
-  left: 50%;
-  bottom: 100%;
-  transform: translate(-50%, calc(-6px / var(--s)));
-  padding: calc(3px / var(--s)) calc(8px / var(--s));
-  border: calc(2px / var(--s)) solid var(--color-accent-2);
-  background: var(--color-surface);
-  box-shadow: calc(3px / var(--s)) calc(3px / var(--s)) 0 var(--color-shadow);
-  color: var(--color-text);
-  font-family: var(--font-mono);
-  font-size: calc(13px / var(--s));
-  font-weight: 500;
-  line-height: 1.4;
-  white-space: nowrap;
-  opacity: 0;
-  transition: opacity var(--dur-fast) var(--ease);
-}
-.room-obj.is-hot .room-tip {
-  opacity: 1;
-}
-.room-stage.is-zoomed .room-tip {
-  display: none;
-}
-
-/* ---------- Monitor screen (sits on the screen's slanted face) ---------- */
-.room-screen {
-  position: absolute;
-  transform: skewY(26.565deg); /* the 2:1 isometric slope */
+  left: 0;
+  top: 0;
   transform-origin: 0 0;
+  backface-visibility: hidden;
+}
+.room-screen {
   overflow: hidden;
-  padding: 4px 6px;
+  padding: 8px 12px;
   color: color-mix(in srgb, var(--color-accent-2) 55%, var(--color-text));
   font-family: var(--font-mono);
-  font-size: 7.6px;
+  font-size: 15px;
   line-height: 1.4;
   white-space: pre;
   opacity: 0;
@@ -286,25 +291,25 @@
     opacity: 1;
   }
 }
-
-/* ---------- Desk clock ---------- */
 .room-clock {
-  position: absolute;
   display: grid;
   place-items: center;
-  transform: skewY(26.565deg);
-  transform-origin: 0 0;
   color: var(--color-accent);
 }
 .room-clock svg {
-  width: calc(100% - 2px);
+  width: calc(100% - 4px);
   height: auto;
 }
 
-/* ---------- Sky through the window ---------- */
+/* ---------- Sky outside the window (a real plane behind the wall, so it shifts as the room turns) ---------- */
 .sky {
   position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
   overflow: hidden;
+  backface-visibility: hidden;
+  pointer-events: none;
 }
 .sky__bands {
   position: absolute;
@@ -361,26 +366,29 @@
   position: absolute;
   left: 0;
   top: 0;
-  width: 1px;
-  height: 1px;
+  width: 2px;
+  height: 2px;
   background: var(--scene-moon);
   box-shadow:
-    16px 12px var(--scene-moon),
-    44px 6px var(--scene-moon),
-    80px 18px var(--scene-moon),
-    60px 36px var(--scene-moon),
-    28px 48px var(--scene-moon),
-    96px 44px var(--scene-moon),
-    8px 68px var(--scene-moon),
-    72px 64px var(--scene-moon),
-    104px 8px var(--scene-moon);
+    40px 30px var(--scene-moon),
+    110px 14px var(--scene-moon),
+    200px 44px var(--scene-moon),
+    150px 90px var(--scene-moon),
+    70px 120px var(--scene-moon),
+    240px 110px var(--scene-moon),
+    20px 160px var(--scene-moon),
+    180px 150px var(--scene-moon),
+    300px 20px var(--scene-moon),
+    320px 80px var(--scene-moon),
+    270px 140px var(--scene-moon),
+    90px 70px var(--scene-moon);
   opacity: var(--stars);
   transition: opacity 4s var(--ease);
   animation: twinkle 3s steps(2) infinite;
 }
 @keyframes twinkle {
   50% {
-    translate: 1px 0;
+    translate: 2px 0;
   }
 }
 .sky__city,

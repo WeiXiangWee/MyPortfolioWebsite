@@ -1,22 +1,63 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { SCENE } from '../scene/sceneLayout.js';
+import { SCENE3D } from '../scene/scene3d.js';
 import { OBJECTS } from '../data/sections.js';
-import { Sky } from './Sky.jsx';
 import { PixelDigits } from './PixelDigits.jsx';
 import './Room.css';
 
-const PERSPECTIVE = 1400;
-// Depth of each layer (px). Kept tiny on purpose so the desk items stay "glued" to the desk while
-// the room turns. Bigger gaps make layers slide apart (they looked like they were floating).
-// The 1px steps only keep the paint order right (items in front of the furniture and walls).
-const DEPTH = { wall: 0, furniture: 1, items: 2 };
+/*
+  The room is a real 3D diorama built with CSS 3D transforms:
+    stage (overflow hidden, handles dragging)
+      └ world (time-of-day lighting filter)
+          └ camera (perspective + rotateX/rotateZ + zoom)
+              └ groups (walls, desk, each clickable object…)
+                  └ faces (flat pixel-art panels placed with matrix3d)
+  The faces and their textures come from scripts/build-room3d.mjs.
+*/
+
+const U = SCENE3D.unit; // CSS px per room unit
+const PERSPECTIVE = 2600; // px; smaller = stronger depth
 const ZOOM = 2.2; // keep in sync with --zoom-scale in tokens.css
-const REST = { rx: 6, ry: -6 }; // resting angle (deg) the room settles back to
-const LIMITS = { rx: [-8, 20], ry: [-26, 26] }; // how far you can turn it (deg)
-const DRAG_SPEED = 0.2; // degrees per pixel dragged
+const REST = { rx: 60, rz: 45 }; // resting camera angle (deg): looking down at the back corner
+const LIMITS = { rx: [46, 72], rz: [18, 72] }; // how far you can turn it
+const DRAG_SPEED = { rx: 0.15, rz: 0.25 }; // degrees per pixel dragged
 const DRAG_THRESHOLD = 5; // px the pointer must move before a press counts as a drag
+const ZOOMED_STRENGTH = 0.3; // the angle softens to 30% while zoomed into an object
+const INTRO_SPACE = 400; // px kept free on the left for the intro panel (22rem + gutters)
 
 const clamp = (v, [lo, hi]) => Math.min(hi, Math.max(lo, v));
+const rad = (d) => (d * Math.PI) / 180;
+const { room } = SCENE3D;
+const ROOM_FOCUS = [room.w / 2, room.d / 2, (room.h - room.slab) / 2];
+const ROOM_CORNERS = [0, room.w].flatMap((x) => [0, room.d].flatMap((y) => [-room.slab, room.h].map((z) => [x, y, z])));
+const atlasStyle = { '--atlas': `url(${SCENE3D.atlas})`, '--atlas-size': `${SCENE3D.atlasSize[0]}px ${SCENE3D.atlasSize[1]}px` };
+
+/** Where a room point lands on screen (before zoom/perspective), for the resting camera angle. */
+function project([x, y, z]) {
+  const cz = Math.cos(rad(REST.rz)), sz = Math.sin(rad(REST.rz));
+  const x1 = (x * cz - y * sz) * U;
+  const y1 = (x * sz + y * cz) * U;
+  return [x1, y1 * Math.cos(rad(REST.rx)) - z * U * Math.sin(rad(REST.rx))];
+}
+
+/** Camera position: the whole room fitted beside the intro panel, or zoomed into one object. */
+function computeCamera(size, zoomObject) {
+  const { w, h } = size;
+  const availW = Math.max(200, w - INTRO_SPACE - 24);
+  const availH = Math.max(200, h - 48);
+  const [fx, fy] = project(ROOM_FOCUS);
+  const pts = ROOM_CORNERS.map((c) => project(c)).map(([x, y]) => [x - fx, y - fy]);
+  const minX = Math.min(...pts.map((p) => p[0])), maxX = Math.max(...pts.map((p) => p[0]));
+  const minY = Math.min(...pts.map((p) => p[1])), maxY = Math.max(...pts.map((p) => p[1]));
+  const kHome = Math.min(availW / (maxX - minX), availH / (maxY - minY)) * 0.94;
+  if (!zoomObject) {
+    const sx = INTRO_SPACE + availW / 2 - (kHome * (minX + maxX)) / 2;
+    const sy = h / 2 - (kHome * (minY + maxY)) / 2;
+    return { k: kHome, focus: ROOM_FOCUS, sx, sy, bottom: sy + kHome * maxY };
+  }
+  const windowWidth = Math.min(736, w * 0.56); // same as --window-w: min(46rem, 56vw)
+  const freeW = w - windowWidth - 24;
+  return { k: kHome * ZOOM, focus: SCENE3D.groups[zoomObject].center, sx: Math.max(freeW / 2, 160), sy: h / 2, bottom: h };
+}
 
 /** Screen reader label for each clickable object. */
 function labelFor(obj) {
@@ -24,37 +65,38 @@ function labelFor(obj) {
   if (obj.action === 'lamp') return `${obj.name}: light`;
   return `${obj.name}: open ${obj.tooltip.replace('> ', '')}`;
 }
-const INTRO_SPACE = 400; // px kept free on the left for the intro panel (22rem + gutters)
 
-const RW = SCENE.width, RH = SCENE.height;
-
-/** transform for a layer at depth z, scaled back so it still lines up when the room is flat */
-function depthStyle(z, originX = RW / 2, originY = RH / 2) {
-  return {
-    transform: `translateZ(${z}px) scale(${(PERSPECTIVE - z) / PERSPECTIVE})`,
-    transformOrigin: `${originX}px ${originY}px`,
-  };
+/**
+ * Hover label as a little sign parallel to the object's front, standing on its top edge.
+ * rotateX(-90deg) stands the sign up facing +Y; for left-wall objects, rotateZ(-90deg) turns it to face +X.
+ */
+const LABEL = { font: 20, padX: 10, border: 2 }; // keep in sync with .room-tip > span in Room.css
+function labelTransform({ at, facing }, text) {
+  // Slide the sign sideways if it would poke into a wall (IBM Plex Mono is ~0.6em per character)
+  const halfWidth = (text.length * LABEL.font * 0.6 + 2 * (LABEL.padX + LABEL.border)) / 2 / U;
+  const along = facing === 'x' ? 1 : 0; // the room axis the sign runs along
+  const limit = facing === 'x' ? room.d : room.w;
+  const p = [...at];
+  p[along] = clamp(p[along], [halfWidth + 1, limit - halfWidth - 1]);
+  const pos = `translate3d(${p[0] * U}px, ${p[1] * U}px, ${p[2] * U}px)`;
+  // translate(-50%, -100%) centres the sign on its anchor and sits it on top. It's part of the sign's own
+  // transform (not a child offset) so the element's box IS the visible sign; an empty box beside it would
+  // otherwise get painted as a black rectangle in 3D.
+  const stand = facing === 'x' ? 'rotateZ(-90deg) rotateX(-90deg)' : 'rotateX(-90deg)';
+  return `${pos} ${stand} translate(-50%, -100%)`;
 }
 
-/** Where the room sits on screen: home view or zoomed into one object. */
-function computeCamera(size, zoomObject, windowWidth) {
-  const { w, h } = size;
-  const availW = Math.max(200, w - INTRO_SPACE - 24);
-  const availH = Math.max(200, h - 48);
-  // Whole-number scales keep every art pixel the same size (crisp pixel art).
-  // Only on small screens does it drop below 1x.
-  const fit = Math.min(availW / RW, availH / RH);
-  const scale = fit >= 1 ? Math.floor(fit) : Math.max(0.5, Math.floor(fit * 4) / 4);
-  if (!zoomObject) {
-    return { scale, k: scale, cx: INTRO_SPACE + availW / 2, cy: h / 2 };
-  }
-  const k = scale * ZOOM;
-  const [tx, ty] = SCENE.objects[zoomObject].center;
-  const freeW = w - windowWidth - 24; // space left of the open window
-  const fx = Math.max(freeW / 2, 160);
-  const fy = h / 2;
-  return { scale, k, cx: fx - k * (tx - RW / 2), cy: fy - k * (ty - RH / 2) };
+/** One flat pixel-art panel. Billboards (c) always turn to face the camera. */
+function Face({ f }) {
+  const style = { width: f.w, height: f.h, backgroundPosition: `${f.bx}px ${f.by}px` };
+  if (f.c) style.transform = `translate3d(${f.c[0]}px, ${f.c[1]}px, ${f.c[2]}px) rotateZ(calc(-1 * var(--rz))) rotateX(calc(-1 * var(--rx))) translate(-50%, -50%)`;
+  else style.transform = f.m;
+  if (f.clip) style.clipPath = f.clip;
+  return <div className={`f${f.double ? ' f--double' : ''}`} style={style} />;
 }
+
+/** An HTML panel (screen text, clock, sky) placed in 3D like a face. */
+const panelStyle = (p) => ({ width: p.w, height: p.h, transform: p.m });
 
 export function Room({
   zoomObject,
@@ -73,15 +115,9 @@ export function Room({
   interactive,
 }) {
   const stageRef = useRef(null);
-  const tiltRef = useRef(null);
+  const cameraRef = useRef(null);
   const [size, setSize] = useState({ w: window.innerWidth, h: window.innerHeight - 56 });
   const [hovered, setHovered] = useState(null);
-
-  // Preload both lamp pictures so switching it on/off never flickers
-  useEffect(() => {
-    const { src, srcOff } = SCENE.objects.lamp;
-    for (const url of [src, srcOff]) new Image().src = url;
-  }, []);
 
   // Track the stage size
   useLayoutEffect(() => {
@@ -94,22 +130,21 @@ export function Room({
     return () => ro.disconnect();
   }, []);
 
-  const windowWidth = Math.min(736, size.w * 0.56); // same as --window-w: min(46rem, 56vw)
-  const cam = computeCamera(size, zoomObject, windowWidth);
-  const strength = reduced ? 0 : zoomObject ? 0.3 : 1; // the angle softens to 30% while zoomed
+  const cam = computeCamera(size, zoomObject);
 
   // ---- Drag to rotate: hold the mouse button and drag to turn the room ----
   const angle = useRef({ ...REST });
   const drag = useRef(null);
   const justDragged = useRef(false);
   const [dragging, setDragging] = useState(false);
+  const strength = zoomObject ? ZOOMED_STRENGTH : 1;
 
-  const applyAngle = (rx, ry) => {
-    angle.current = { rx, ry };
-    const el = tiltRef.current;
+  const applyAngle = (rx, rz) => {
+    angle.current = { rx, rz };
+    const el = cameraRef.current;
     if (!el) return;
-    el.style.setProperty('--rx', `${rx * strength}deg`);
-    el.style.setProperty('--ry', `${ry * strength}deg`);
+    el.style.setProperty('--rx', `${REST.rx + (rx - REST.rx) * strength}deg`);
+    el.style.setProperty('--rz', `${REST.rz + (rz - REST.rz) * strength}deg`);
   };
 
   const onPointerDown = (e) => {
@@ -127,14 +162,14 @@ export function Room({
       stageRef.current.setPointerCapture(d.id);
       setDragging(true);
     }
-    applyAngle(clamp(d.start.rx - dy * DRAG_SPEED, LIMITS.rx), clamp(d.start.ry + dx * DRAG_SPEED, LIMITS.ry));
+    applyAngle(clamp(d.start.rx + dy * DRAG_SPEED.rx, LIMITS.rx), clamp(d.start.rz - dx * DRAG_SPEED.rz, LIMITS.rz));
   };
   const endDrag = () => {
     const d = drag.current;
     drag.current = null;
     if (!d?.active) return;
     setDragging(false);
-    applyAngle(REST.rx, REST.ry); // let go: the room eases back to its resting angle
+    applyAngle(REST.rx, REST.rz); // let go: the room eases back to its resting angle
     // A drag ends with a click event; ignore it so letting go over an object doesn't open it
     justDragged.current = true;
     setTimeout(() => {
@@ -147,9 +182,9 @@ export function Room({
     e.stopPropagation();
   };
 
-  // Re-apply the angle when the strength changes (zooming in/out, reduced motion)
+  // Re-apply the angle when zooming in/out changes its strength
   useEffect(() => {
-    applyAngle(angle.current.rx, angle.current.ry);
+    applyAngle(angle.current.rx, angle.current.rz);
   }, [strength]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const zoomed = Boolean(zoomObject);
@@ -164,6 +199,10 @@ export function Room({
     interactive ? '' : 'is-inert',
   ].join(' ');
 
+  const { groups } = SCENE3D;
+  const objects = OBJECTS.filter((o) => groups[o.id]);
+  const scenery = ['walls', 'furniture', 'decor'];
+
   return (
     <div
       ref={stageRef}
@@ -174,82 +213,82 @@ export function Room({
       onPointerCancel={endDrag}
       onLostPointerCapture={endDrag}
       onClickCapture={onClickCapture}
-      style={{ perspectiveOrigin: `${cam.cx}px ${cam.cy}px`, perspective: `${PERSPECTIVE}px`, '--s': cam.k }}
     >
-      <div
-        className="room-zoom"
-        style={{
-          width: RW,
-          height: RH,
-          transform: `translate(${cam.cx - RW / 2}px, ${cam.cy - RH / 2}px) scale(${cam.k})`,
-        }}
-      >
-        <div className="room-tilt" ref={tiltRef}>
-          {/* Layer 1: wall, window sky, floor */}
-          <div className="room-layer" style={{ ...depthStyle(DEPTH.wall), '--i': 0 }}>
-            <Sky />
-            <img className="room-art" src={SCENE.layers.walls} alt="" width={RW} height={RH} />
-            <div className="room-floor-light" style={{ clipPath: `polygon(${SCENE.floorLight.map(([x, y]) => `${x}px ${y}px`).join(',')})` }} />
-            <img className="room-lamp-glow" src={SCENE.lampGlow} alt="" width={RW} height={RH} />
-          </div>
-          {/* Layer 2: desk and furniture */}
-          <div className="room-layer" style={{ ...depthStyle(DEPTH.furniture), '--i': 1 }}>
-            <img className="room-art" src={SCENE.layers.furniture} alt="" width={RW} height={RH} />
-          </div>
-          {/* Layer 3: desk items that aren't clickable + the desk clock */}
-          <div className="room-layer" style={{ ...depthStyle(DEPTH.items), '--i': 2 }}>
-            <img className="room-art" src={SCENE.layers.decor} alt="" width={RW} height={RH} />
-            <div
-              className="room-clock"
-              style={{ left: SCENE.clock.x, top: SCENE.clock.y, width: SCENE.clock.w, height: SCENE.clock.h }}
-              role="img"
-              aria-label={`Desk clock: ${timeLabel} in Singapore`}
-            >
-              <PixelDigits text={timeLabel} />
+      <div className="room-world">
+        <div
+          ref={cameraRef}
+          className="room-camera"
+          style={{
+            ...atlasStyle,
+            '--k': cam.k,
+            transform:
+              `translate(${cam.sx}px, ${cam.sy}px) scale(${cam.k}) perspective(${PERSPECTIVE}px) ` +
+              `rotateX(var(--rx)) rotateZ(var(--rz)) ` +
+              `translate3d(${-cam.focus[0] * U}px, ${-cam.focus[1] * U}px, ${-cam.focus[2] * U}px)`,
+          }}
+        >
+          {/* outside: the sky and city, seen through the window */}
+          <Sky />
+          <div className="room-floor-light" style={{ ...panelStyle(SCENE3D.floorLight), clipPath: SCENE3D.floorLight.clip }} />
+
+          {scenery.map((name, i) => (
+            <div key={name} className={`g g--${name}`} style={{ '--i': i }}>
+              {groups[name].faces.map((f, j) => (
+                <Face key={j} f={f} />
+              ))}
+              {name === 'decor' && (
+                <div className="room-clock" style={panelStyle(SCENE3D.clock)} role="img" aria-label={`Desk clock: ${timeLabel} in Singapore`}>
+                  <PixelDigits text={timeLabel} />
+                </div>
+              )}
             </div>
+          ))}
+
+          {/* warm light from the floor lamp */}
+          <div className="g g--glow" aria-hidden="true">
+            {groups.glow.faces.map((f, j) => (
+              <Face key={j} f={f} />
+            ))}
           </div>
 
-          {/* Clickable objects: each is its own PNG, positioned over the room */}
-          {OBJECTS.map((obj, index) => {
-            const o = SCENE.objects[obj.id];
+          {/* clickable objects: real buttons for keyboard + screen readers */}
+          {objects.map((obj, index) => {
+            const g = groups[obj.id];
             const isHot = hovered === obj.id;
+            const faces = g.faces.filter((f) => !f.state || f.state === (lampOn ? 'on' : 'off'));
+            const activate = (e) => onActivate(obj, e.currentTarget);
+            const tip = obj.action === 'lamp' && lampOn ? obj.tooltipOn : obj.tooltip;
             return (
               <div
                 key={obj.id}
-                className={`room-obj room-obj--${obj.id}${isHot ? ' is-hot' : ''}${pinging ? ' is-pinging' : ''}`}
-                style={{
-                  left: o.x,
-                  top: o.y,
-                  width: o.w,
-                  height: o.h,
-                  ...depthStyle(DEPTH[o.depth], RW / 2 - o.x, RH / 2 - o.y),
-                  '--i': 3 + index * 0.35,
-                  '--ping-delay': `${index * 120}ms`,
+                id={`hit-${obj.id}`}
+                className={`g g--obj${isHot ? ' is-hot' : ''}${pinging ? ' is-pinging' : ''}`}
+                style={{ '--i': 3 + index * 0.5, '--ping-delay': `${index * 120}ms` }}
+                role="button"
+                tabIndex={interactive ? 0 : -1}
+                aria-label={labelFor(obj)}
+                aria-pressed={obj.action === 'lamp' ? lampOn : undefined}
+                onClick={activate}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    activate(e);
+                  }
                 }}
+                onPointerEnter={() => {
+                  setHovered(obj.id);
+                  onHoverSound();
+                }}
+                onPointerLeave={() => setHovered((h) => (h === obj.id ? null : h))}
+                onFocus={() => setHovered(obj.id)}
+                onBlur={() => setHovered((h) => (h === obj.id ? null : h))}
               >
-                <img className="room-art" src={obj.id === 'lamp' && !lampOn ? o.srcOff : o.src} alt="" width={o.w} height={o.h} />
-                {obj.id === 'monitor' && (
-                  <MonitorScreen lines={screenLines} done={screenDone} loaded={loaded} offsetX={SCENE.screen.x - o.x} offsetY={SCENE.screen.y - o.y} />
-                )}
-                <button
-                  type="button"
-                  id={`hit-${obj.id}`}
-                  className="room-hit"
-                  style={{ clipPath: `polygon(${o.polygon.map(([x, y]) => `${x}px ${y}px`).join(',')})` }}
-                  aria-label={labelFor(obj)}
-                  aria-pressed={obj.action === 'lamp' ? lampOn : undefined}
-                  tabIndex={interactive ? 0 : -1}
-                  onClick={(e) => onActivate(obj, e.currentTarget)}
-                  onPointerEnter={() => {
-                    setHovered(obj.id);
-                    onHoverSound();
-                  }}
-                  onPointerLeave={() => setHovered((h) => (h === obj.id ? null : h))}
-                  onFocus={() => setHovered(obj.id)}
-                  onBlur={() => setHovered((h) => (h === obj.id ? null : h))}
-                />
-                <span className="room-tip" aria-hidden="true">
-                  {obj.action === 'lamp' && lampOn ? obj.tooltipOn : obj.tooltip}
+                {faces.map((f, j) => (
+                  <Face key={`${j}-${f.state ?? ''}`} f={f} />
+                ))}
+                {obj.id === 'monitor' && <MonitorScreen lines={screenLines} done={screenDone} loaded={loaded} />}
+                <span className="room-tip" aria-hidden="true" style={{ transform: labelTransform(g.label, tip) }}>
+                  <span>{tip}</span>
                 </span>
               </div>
             );
@@ -258,12 +297,7 @@ export function Room({
       </div>
 
       {showPrompt && (
-        <button
-          type="button"
-          className="room-prompt"
-          onClick={onExplore}
-          style={{ left: cam.cx, top: Math.min(size.h - 56, cam.cy + (RH / 2) * cam.k - 24) }}
-        >
+        <button type="button" className="room-prompt" onClick={onExplore} style={{ left: cam.sx, top: Math.min(size.h - 56, cam.bottom - 8) }}>
           <span aria-hidden="true">&gt; </span>Explore the desk <kbd>Enter</kbd>
           <span className="cursor-blink" aria-hidden="true" />
         </button>
@@ -272,15 +306,31 @@ export function Room({
   );
 }
 
-/** Terminal text on the monitor's screen face (decorative copy of the intro). */
-function MonitorScreen({ lines, done, loaded, offsetX, offsetY }) {
-  const { w, h } = SCENE.screen;
+/** The sky outside the window: colour bands, sun or moon, stars and the city skyline. */
+function Sky() {
+  const { sky } = SCENE3D;
   return (
-    <div
-      className={`room-screen${loaded ? ' is-on' : ''}`}
-      style={{ left: offsetX, top: offsetY, width: w, height: h }}
-      aria-hidden="true"
-    >
+    <div className="sky" style={panelStyle(sky)} aria-hidden="true">
+      <div className="sky__bands" style={{ height: `${sky.horizon * 100}%` }}>
+        <span />
+        <span />
+        <span />
+        <span />
+        <span />
+      </div>
+      <div className="sky__ground" style={{ top: `${sky.horizon * 100}%` }} />
+      <div className="sky__stars" />
+      <div className="sky__sun" />
+      <img className="sky__city" src={sky.skyline} alt="" />
+      <img className="sky__lights" src={sky.lights} alt="" />
+    </div>
+  );
+}
+
+/** Terminal text on the monitor's screen (decorative copy of the intro). */
+function MonitorScreen({ lines, done, loaded }) {
+  return (
+    <div className={`room-screen${loaded ? ' is-on' : ''}`} style={panelStyle(SCENE3D.screen)} aria-hidden="true">
       {lines.map((line, i) => (
         <div key={i} className={line.startsWith('>') ? 'room-screen__cmd' : undefined}>
           {line}
