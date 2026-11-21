@@ -22,6 +22,7 @@ export const OBJECTS = [
   { id: 'notes', section: 'community', name: 'Corkboard with sticky notes and a photo', tooltip: '> community.exe' },
   { id: 'phone', section: 'contact', name: 'Desk phone', tooltip: '> contact.exe' },
   { id: 'floppy', action: 'resume', name: 'Floppy disk', tooltip: '> download_cv.pdf' },
+  { id: 'lamp', action: 'lamp', name: 'Floor lamp', tooltip: '> lamp.on()', tooltipOn: '> lamp.off()' },
 ];
 
 /** Which window a URL opens. null = home (no window), 'notfound' = 404 window. */

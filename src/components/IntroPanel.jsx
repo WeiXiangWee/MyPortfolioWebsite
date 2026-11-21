@@ -38,6 +38,8 @@ export function IntroPanel({ hidden, onExplore, onToast }) {
           <ResumeButton onToast={onToast} className="btn btn--ghost" />
         </div>
 
+        <p className="intro__tip">Tip: click an object to open it, or hold and drag the room to turn it.</p>
+
         <nav className="intro__map" aria-label="Desk map">
           <p className="pixel-label">Desk map</p>
           <ul>

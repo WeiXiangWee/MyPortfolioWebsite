@@ -42,7 +42,44 @@ const hand = [
   '....XOOOOOOX....',
   '....XXXXXXXX....',
 ];
-for (const [name, rows] of [['arrow', arrow], ['hand', hand]]) {
+// open hand (over the room) and closed fist (while dragging it)
+const grab = [
+  '......XX.XX.....',
+  '.....XOOXOOXX...',
+  '.....XOOXOOXOX..',
+  '..XX.XOOXOOXOX..',
+  '.XOOXXOOXOOXOX..',
+  '.XOOXXOOOOOOOX..',
+  '..XOOXOOOOOOOX..',
+  '..XOOOOOOOOOOX..',
+  '...XOOOOOOOOOX..',
+  '...XOOOOOOOOX...',
+  '....XOOOOOOOX...',
+  '....XOOOOOOX....',
+  '.....XOOOOOX....',
+  '.....XOOOOOX....',
+  '.....XXXXXXX....',
+  '................',
+];
+const grabbing = [
+  '................',
+  '................',
+  '................',
+  '.....XX.XX.XX...',
+  '....XOOXOOXOOX..',
+  '...XXOOXOOXOOXX.',
+  '..XOOXOOOOOOOOX.',
+  '..XOOOOOOOOOOOX.',
+  '...XOOOOOOOOOOX.',
+  '...XOOOOOOOOOX..',
+  '....XOOOOOOOOX..',
+  '....XOOOOOOOX...',
+  '.....XOOOOOX....',
+  '.....XOOOOOX....',
+  '.....XXXXXXX....',
+  '................',
+];
+for (const [name, rows] of [['arrow', arrow], ['hand', hand], ['grab', grab], ['grabbing', grabbing]]) {
   const cv = new PixelCanvas(32, 32);
   cv.bitmap(0, 0, rows, { X: INK, O: CREAM }, 2);
   cv.save(`public/cursor/${name}.png`);

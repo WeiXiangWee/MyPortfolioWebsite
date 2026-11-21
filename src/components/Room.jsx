@@ -5,12 +5,25 @@ import { Sky } from './Sky.jsx';
 import { PixelDigits } from './PixelDigits.jsx';
 import './Room.css';
 
-// Depth of each layer (px). Bigger numbers float further towards the viewer when the room tilts.
 const PERSPECTIVE = 1400;
-const DEPTH = { wall: 0, furniture: 40, items: 80 };
+// Depth of each layer (px). Kept tiny on purpose so the desk items stay "glued" to the desk while
+// the room turns. Bigger gaps make layers slide apart (they looked like they were floating).
+// The 1px steps only keep the paint order right (items in front of the furniture and walls).
+const DEPTH = { wall: 0, furniture: 1, items: 2 };
 const ZOOM = 2.2; // keep in sync with --zoom-scale in tokens.css
-const REST = { rx: 6, ry: -6 }; // resting angle (deg) when the mouse leaves
-const RANGE = { rx: 5, ry: 8 }; // how far the mouse can tilt it
+const REST = { rx: 6, ry: -6 }; // resting angle (deg) the room settles back to
+const LIMITS = { rx: [-8, 20], ry: [-26, 26] }; // how far you can turn it (deg)
+const DRAG_SPEED = 0.2; // degrees per pixel dragged
+const DRAG_THRESHOLD = 5; // px the pointer must move before a press counts as a drag
+
+const clamp = (v, [lo, hi]) => Math.min(hi, Math.max(lo, v));
+
+/** Screen reader label for each clickable object. */
+function labelFor(obj) {
+  if (obj.action === 'resume') return `${obj.name}: download CV`;
+  if (obj.action === 'lamp') return `${obj.name}: light`;
+  return `${obj.name}: open ${obj.tooltip.replace('> ', '')}`;
+}
 const INTRO_SPACE = 400; // px kept free on the left for the intro panel (22rem + gutters)
 
 const RW = SCENE.width, RH = SCENE.height;
@@ -28,7 +41,10 @@ function computeCamera(size, zoomObject, windowWidth) {
   const { w, h } = size;
   const availW = Math.max(200, w - INTRO_SPACE - 24);
   const availH = Math.max(200, h - 48);
-  const scale = Math.max(1, Math.floor(Math.min(availW / RW, availH / RH) * 2) / 2);
+  // Whole-number scales keep every art pixel the same size (crisp pixel art).
+  // Only on small screens does it drop below 1x.
+  const fit = Math.min(availW / RW, availH / RH);
+  const scale = fit >= 1 ? Math.floor(fit) : Math.max(0.5, Math.floor(fit * 4) / 4);
   if (!zoomObject) {
     return { scale, k: scale, cx: INTRO_SPACE + availW / 2, cy: h / 2 };
   }
@@ -50,6 +66,7 @@ export function Room({
   screenDone,
   showPrompt,
   pinging,
+  lampOn,
   onExplore,
   onActivate,
   onHoverSound,
@@ -59,6 +76,12 @@ export function Room({
   const tiltRef = useRef(null);
   const [size, setSize] = useState({ w: window.innerWidth, h: window.innerHeight - 56 });
   const [hovered, setHovered] = useState(null);
+
+  // Preload both lamp pictures so switching it on/off never flickers
+  useEffect(() => {
+    const { src, srcOff } = SCENE.objects.lamp;
+    for (const url of [src, srcOff]) new Image().src = url;
+  }, []);
 
   // Track the stage size
   useLayoutEffect(() => {
@@ -73,29 +96,60 @@ export function Room({
 
   const windowWidth = Math.min(736, size.w * 0.56); // same as --window-w: min(46rem, 56vw)
   const cam = computeCamera(size, zoomObject, windowWidth);
-  const strength = reduced ? 0 : zoomObject ? 0.3 : 1; // tilt softens to 30% while zoomed
+  const strength = reduced ? 0 : zoomObject ? 0.3 : 1; // the angle softens to 30% while zoomed
 
-  // ---- Tilting diorama ----
-  const pointer = useRef({ nx: 0, ny: 0 });
-  const setTilt = (nx, ny) => {
+  // ---- Drag to rotate: hold the mouse button and drag to turn the room ----
+  const angle = useRef({ ...REST });
+  const drag = useRef(null);
+  const justDragged = useRef(false);
+  const [dragging, setDragging] = useState(false);
+
+  const applyAngle = (rx, ry) => {
+    angle.current = { rx, ry };
     const el = tiltRef.current;
     if (!el) return;
-    pointer.current = { nx, ny };
-    const rx = reduced ? 0 : (REST.rx - ny * RANGE.rx) * strength;
-    const ry = reduced ? 0 : (REST.ry + nx * RANGE.ry) * strength;
-    el.style.setProperty('--rx', `${rx}deg`);
-    el.style.setProperty('--ry', `${ry}deg`);
+    el.style.setProperty('--rx', `${rx * strength}deg`);
+    el.style.setProperty('--ry', `${ry * strength}deg`);
   };
-  const onMouseMove = (e) => {
-    const r = stageRef.current.getBoundingClientRect();
-    const nx = ((e.clientX - r.left) / r.width) * 2 - 1;
-    const ny = ((e.clientY - r.top) / r.height) * 2 - 1;
-    setTilt(nx, ny);
+
+  const onPointerDown = (e) => {
+    if (reduced || zoomObject || e.button !== 0) return;
+    drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, start: { ...angle.current }, active: false };
   };
-  const onMouseLeave = () => setTilt(0, 0);
-  // Re-apply the tilt when the strength changes (zooming in/out, reduced motion)
+  const onPointerMove = (e) => {
+    const d = drag.current;
+    if (!d || e.pointerId !== d.id) return;
+    const dx = e.clientX - d.x;
+    const dy = e.clientY - d.y;
+    if (!d.active) {
+      if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return; // still a normal click, not a drag
+      d.active = true;
+      stageRef.current.setPointerCapture(d.id);
+      setDragging(true);
+    }
+    applyAngle(clamp(d.start.rx - dy * DRAG_SPEED, LIMITS.rx), clamp(d.start.ry + dx * DRAG_SPEED, LIMITS.ry));
+  };
+  const endDrag = () => {
+    const d = drag.current;
+    drag.current = null;
+    if (!d?.active) return;
+    setDragging(false);
+    applyAngle(REST.rx, REST.ry); // let go: the room eases back to its resting angle
+    // A drag ends with a click event; ignore it so letting go over an object doesn't open it
+    justDragged.current = true;
+    setTimeout(() => {
+      justDragged.current = false;
+    }, 0);
+  };
+  const onClickCapture = (e) => {
+    if (!justDragged.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  // Re-apply the angle when the strength changes (zooming in/out, reduced motion)
   useEffect(() => {
-    setTilt(pointer.current.nx, pointer.current.ny);
+    applyAngle(angle.current.rx, angle.current.ry);
   }, [strength]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const zoomed = Boolean(zoomObject);
@@ -104,6 +158,9 @@ export function Room({
     `sky--${period}`,
     loaded ? 'is-loaded' : 'is-loading',
     zoomed ? 'is-zoomed' : '',
+    dragging ? 'is-dragging' : '',
+    lampOn ? 'lamp-on' : '',
+    reduced ? '' : 'can-drag',
     interactive ? '' : 'is-inert',
   ].join(' ');
 
@@ -111,8 +168,12 @@ export function Room({
     <div
       ref={stageRef}
       className={stageClass}
-      onMouseMove={onMouseMove}
-      onMouseLeave={onMouseLeave}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+      onLostPointerCapture={endDrag}
+      onClickCapture={onClickCapture}
       style={{ perspectiveOrigin: `${cam.cx}px ${cam.cy}px`, perspective: `${PERSPECTIVE}px`, '--s': cam.k }}
     >
       <div
@@ -129,6 +190,7 @@ export function Room({
             <Sky />
             <img className="room-art" src={SCENE.layers.walls} alt="" width={RW} height={RH} />
             <div className="room-floor-light" style={{ clipPath: `polygon(${SCENE.floorLight.map(([x, y]) => `${x}px ${y}px`).join(',')})` }} />
+            <img className="room-lamp-glow" src={SCENE.lampGlow} alt="" width={RW} height={RH} />
           </div>
           {/* Layer 2: desk and furniture */}
           <div className="room-layer" style={{ ...depthStyle(DEPTH.furniture), '--i': 1 }}>
@@ -165,7 +227,7 @@ export function Room({
                   '--ping-delay': `${index * 120}ms`,
                 }}
               >
-                <img className="room-art" src={o.src} alt="" width={o.w} height={o.h} />
+                <img className="room-art" src={obj.id === 'lamp' && !lampOn ? o.srcOff : o.src} alt="" width={o.w} height={o.h} />
                 {obj.id === 'monitor' && (
                   <MonitorScreen lines={screenLines} done={screenDone} loaded={loaded} offsetX={SCENE.screen.x - o.x} offsetY={SCENE.screen.y - o.y} />
                 )}
@@ -174,7 +236,8 @@ export function Room({
                   id={`hit-${obj.id}`}
                   className="room-hit"
                   style={{ clipPath: `polygon(${o.polygon.map(([x, y]) => `${x}px ${y}px`).join(',')})` }}
-                  aria-label={obj.action === 'resume' ? `${obj.name}: download CV` : `${obj.name}: open ${obj.tooltip.replace('> ', '')}`}
+                  aria-label={labelFor(obj)}
+                  aria-pressed={obj.action === 'lamp' ? lampOn : undefined}
                   tabIndex={interactive ? 0 : -1}
                   onClick={(e) => onActivate(obj, e.currentTarget)}
                   onPointerEnter={() => {
@@ -186,7 +249,7 @@ export function Room({
                   onBlur={() => setHovered((h) => (h === obj.id ? null : h))}
                 />
                 <span className="room-tip" aria-hidden="true">
-                  {obj.tooltip}
+                  {obj.action === 'lamp' && lampOn ? obj.tooltipOn : obj.tooltip}
                 </span>
               </div>
             );

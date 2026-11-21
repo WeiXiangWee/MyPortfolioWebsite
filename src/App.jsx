@@ -149,8 +149,13 @@ export default function App() {
   }, [showPrompt, explore]);
 
   // ---------- Clicking objects in the room ----------
+  const [lampOn, setLampOn] = useState(false); // the floor lamp starts off; click it to switch it on
   const onActivate = (obj) => {
     play('click');
+    if (obj.action === 'lamp') {
+      setLampOn((on) => !on);
+      return;
+    }
     if (obj.action === 'resume') {
       if (isPlaceholder(profile.resumeUrl)) showToast(`${profile.resumeUrl} not added yet`);
       else {
@@ -211,6 +216,7 @@ export default function App() {
           screenDone={screen.done}
           showPrompt={showPrompt}
           pinging={pinging}
+          lampOn={lampOn}
           onExplore={explore}
           onActivate={onActivate}
           onHoverSound={() => play('hover')}

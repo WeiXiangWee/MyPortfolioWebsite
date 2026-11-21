@@ -16,20 +16,24 @@
   --sky-top: var(--scene-sky);
   --sky-bottom: var(--scene-horizon);
   --sun-color: var(--scene-sun);
-  --sun-x: 20px;
-  --sun-y: 42px;
-  --sun-size: 14px;
+  --sun-x: 40px;
+  --sun-y: 84px;
+  --sun-size: 28px;
   --stars: 0.35;
   --lights: 0.9;
   --spill: color-mix(in srgb, var(--scene-sun) 14%, transparent);
   --room-light: brightness(1) saturate(1) sepia(0);
+  --lamp-boost: brightness(1);
+}
+.room-stage.lamp-on {
+  --lamp-boost: brightness(1.07); /* the lamp lifts the whole room a little */
 }
 .room-stage.sky--dawn {
   --sky-top: var(--scene-sky-dawn);
   --sky-bottom: var(--scene-horizon-dawn);
   --sun-color: var(--scene-sun-dawn);
-  --sun-x: 34px;
-  --sun-y: 36px;
+  --sun-x: 68px;
+  --sun-y: 72px;
   --stars: 0.1;
   --lights: 0.5;
   --spill: color-mix(in srgb, var(--scene-sun-dawn) 14%, transparent);
@@ -39,9 +43,9 @@
   --sky-top: var(--scene-sky-day);
   --sky-bottom: var(--scene-horizon-day);
   --sun-color: var(--scene-sun-day);
-  --sun-x: 28px;
-  --sun-y: 8px;
-  --sun-size: 12px;
+  --sun-x: 56px;
+  --sun-y: 16px;
+  --sun-size: 24px;
   --stars: 0;
   --lights: 0;
   --spill: color-mix(in srgb, var(--scene-sun-day) 20%, transparent);
@@ -51,9 +55,9 @@
   --sky-top: var(--scene-sky-night);
   --sky-bottom: var(--scene-horizon-night);
   --sun-color: var(--scene-moon);
-  --sun-x: 12px;
-  --sun-y: 10px;
-  --sun-size: 8px;
+  --sun-x: 24px;
+  --sun-y: 20px;
+  --sun-size: 16px;
   --stars: 1;
   --lights: 1;
   --spill: color-mix(in srgb, var(--color-accent-2) 8%, transparent);
@@ -68,6 +72,9 @@
   transform-style: preserve-3d;
   transition: transform var(--dur-reveal) var(--ease);
   will-change: transform;
+  /* The containers' own flat boxes would sit in front of the parts of the room tilted away
+     from you and swallow clicks, so only the object buttons take the pointer. */
+  pointer-events: none;
 }
 
 .room-tilt {
@@ -75,7 +82,21 @@
   inset: 0;
   transform-style: preserve-3d;
   transform: rotateX(var(--rx, 6deg)) rotateY(var(--ry, -6deg));
-  transition: transform var(--dur-window) var(--ease);
+  transition: transform var(--dur-reveal) var(--ease); /* slow settle when you let go */
+}
+
+/* ---------- Hold and drag to turn the room ---------- */
+.room-stage.can-drag {
+  cursor: var(--cursor-grab);
+  user-select: none;
+  touch-action: none;
+}
+.room-stage.is-dragging .room-tilt {
+  transition-duration: var(--dur-fast); /* follow the pointer closely while dragging */
+}
+.room-stage.is-dragging,
+.room-stage.is-dragging * {
+  cursor: var(--cursor-grabbing);
 }
 
 .room-layer,
@@ -91,10 +112,42 @@
   width: 100%;
   height: 100%;
   image-rendering: pixelated;
-  filter: var(--room-light);
-  transition: filter var(--dur-fast) var(--ease);
+  filter: var(--room-light) var(--lamp-boost);
+  transition: filter var(--dur-window) var(--ease);
   user-select: none;
   -webkit-user-drag: none;
+}
+
+/* ---------- Floor lamp light (click the lamp to switch it on/off) ---------- */
+.room-lamp-glow {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  opacity: 0;
+  transition: opacity var(--dur-window) var(--ease);
+}
+.room-stage.lamp-on .room-lamp-glow {
+  opacity: 1;
+  animation: lamp-flicker 0.45s steps(1);
+}
+@keyframes lamp-flicker {
+  0% {
+    opacity: 0.6;
+  }
+  20% {
+    opacity: 0.15;
+  }
+  45% {
+    opacity: 0.85;
+  }
+  60% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 
 /* ---------- Opening: the room loads in, layer by layer ---------- */
@@ -142,10 +195,11 @@
   outline: none; /* the clip-path would cut it off; the object glows instead (below) */
 }
 .room-obj.is-hot .room-art {
-  filter: var(--room-light) var(--glow-hover);
+  filter: var(--room-light) var(--lamp-boost) var(--glow-hover);
+  transition-duration: var(--dur-fast);
 }
 .room-obj:has(.room-hit:focus-visible) .room-art {
-  filter: var(--room-light) var(--glow-hover) var(--glow-hover); /* 2px ring for keyboard focus */
+  filter: var(--room-light) var(--lamp-boost) var(--glow-hover) var(--glow-hover); /* 2px ring for keyboard focus */
 }
 .room-stage.is-inert .room-hit {
   pointer-events: none;
@@ -158,10 +212,10 @@
 @keyframes room-ping {
   0%,
   100% {
-    filter: var(--room-light);
+    filter: var(--room-light) var(--lamp-boost);
   }
   50% {
-    filter: var(--room-light) var(--glow-hover) var(--glow-hover);
+    filter: var(--room-light) var(--lamp-boost) var(--glow-hover) var(--glow-hover);
   }
 }
 
@@ -197,10 +251,10 @@
   transform: skewY(26.565deg); /* the 2:1 isometric slope */
   transform-origin: 0 0;
   overflow: hidden;
-  padding: 2px 3px;
+  padding: 4px 6px;
   color: color-mix(in srgb, var(--color-accent-2) 55%, var(--color-text));
   font-family: var(--font-mono);
-  font-size: 3.8px;
+  font-size: 7.6px;
   line-height: 1.4;
   white-space: pre;
   opacity: 0;
@@ -243,8 +297,8 @@
   color: var(--color-accent);
 }
 .room-clock svg {
-  width: 17px;
-  height: 5px;
+  width: calc(100% - 2px);
+  height: auto;
 }
 
 /* ---------- Sky through the window ---------- */
@@ -311,15 +365,15 @@
   height: 1px;
   background: var(--scene-moon);
   box-shadow:
-    8px 6px var(--scene-moon),
-    22px 3px var(--scene-moon),
-    40px 9px var(--scene-moon),
-    30px 18px var(--scene-moon),
-    14px 24px var(--scene-moon),
-    48px 22px var(--scene-moon),
-    4px 34px var(--scene-moon),
-    36px 32px var(--scene-moon),
-    52px 4px var(--scene-moon);
+    16px 12px var(--scene-moon),
+    44px 6px var(--scene-moon),
+    80px 18px var(--scene-moon),
+    60px 36px var(--scene-moon),
+    28px 48px var(--scene-moon),
+    96px 44px var(--scene-moon),
+    8px 68px var(--scene-moon),
+    72px 64px var(--scene-moon),
+    104px 8px var(--scene-moon);
   opacity: var(--stars);
   transition: opacity 4s var(--ease);
   animation: twinkle 3s steps(2) infinite;

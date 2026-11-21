@@ -91,7 +91,7 @@
   --dur-reveal: 0.9s; /* section reveals, camera zoom */
   --zoom-scale: 2.2; /* how far the camera zooms into an object */
   --zoom-window-delay: 0.75s; /* window opens after the zoom */
-  --tilt-zoomed: 0.3; /* tilt strength while zoomed */
+  --tilt-zoomed: 0.3; /* room angle strength while zoomed */
 
   /* ---------- Layout ---------- */
   --topbar-h: 3.5rem;
@@ -102,4 +102,6 @@
   /* ---------- Cursor ---------- */
   --cursor-default: url('/cursor/arrow.png') 1 1, auto;
   --cursor-pointer: url('/cursor/hand.png') 11 1, pointer;
+  --cursor-grab: url('/cursor/grab.png') 16 14, grab; /* over the room: hold and drag to turn it */
+  --cursor-grabbing: url('/cursor/grabbing.png') 16 14, grabbing;
 }

@@ -1,6 +1,7 @@
 // Tiny pixel-art toolkit used by the art scripts (no dependencies).
-// - PixelCanvas: an RGBA pixel buffer you can fill and save as PNG
-// - iso helpers: project 3D room coordinates onto a 2:1 isometric pixel grid
+// - PixelCanvas: an RGBA pixel buffer you can fill, shade and save as PNG
+// - makeIso: project 3D room coordinates onto a 2:1 isometric pixel grid
+// - dith / ramp: ordered (Bayer) dithering, the classic pixel-art way to draw gradients
 import zlib from 'node:zlib';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -15,15 +16,45 @@ export function rgba(hex) {
   cache.set(hex, v);
   return v;
 }
+const toHex = (r, g, b) => '#' + [r, g, b].map((n) => Math.round(n).toString(16).padStart(2, '0')).join('');
 /** Mix two hex colours. t = 0 gives a, t = 1 gives b. */
 export function mix(a, b, t) {
   const A = rgba(a), B = rgba(b);
-  const c = [0, 1, 2].map((i) => Math.round(A[i] + (B[i] - A[i]) * t));
-  return '#' + c.map((n) => n.toString(16).padStart(2, '0')).join('');
+  return toHex(...[0, 1, 2].map((i) => A[i] + (B[i] - A[i]) * t));
 }
 /** Same colour with an alpha value (0–1). */
 export function alpha(hex, a) {
-  return hex.slice(0, 7) + Math.round(a * 255).toString(16).padStart(2, '0');
+  return hex.slice(0, 7) + Math.round(Math.max(0, Math.min(1, a)) * 255).toString(16).padStart(2, '0');
+}
+
+/* ---------- dithering + noise ---------- */
+const BAYER = [
+  [0, 8, 2, 10],
+  [12, 4, 14, 6],
+  [3, 11, 1, 9],
+  [15, 7, 13, 5],
+];
+export const clamp01 = (t) => Math.max(0, Math.min(1, t));
+/** true on a fraction t of pixels, in an ordered checker pattern */
+export const dith = (t, x, y) => t > (BAYER[y & 3][x & 3] + 0.5) / 16;
+/** Dithered gradient through a list of colours (t = 0..1). */
+export function ramp(cols, t, x, y) {
+  if (cols.length === 1) return cols[0];
+  const pos = clamp01(t) * (cols.length - 1);
+  const i = Math.min(cols.length - 2, Math.floor(pos));
+  return dith(pos - i, x, y) ? cols[i + 1] : cols[i];
+}
+/** Dithered steps through a list of numbers (for light/shadow amounts). */
+export function rampN(vals, t, x, y) {
+  const pos = clamp01(t) * (vals.length - 1);
+  const i = Math.min(vals.length - 2, Math.floor(pos));
+  return dith(pos - i, x, y) ? vals[i + 1] : vals[i];
+}
+/** Stable pseudo-random value 0..1 for integer inputs. */
+export function noise(x, y, seed = 0) {
+  let h = (Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263) + Math.imul(seed | 0, 982451653)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
 
 /* ---------- PNG encoding ---------- */
@@ -91,10 +122,17 @@ export class PixelCanvas {
     d[i + 2] = Math.round(d[i + 2] + (b - d[i + 2]) * t);
     d[i + 3] = Math.min(255, Math.round(d[i + 3] + a * (1 - d[i + 3] / 255)));
   }
+  /** Colour at a pixel as '#rrggbb', or null if transparent. */
+  get(x, y) {
+    if (x < 0 || y < 0 || x >= this.w || y >= this.h) return null;
+    const i = (y * this.w + x) * 4;
+    if (!this.data[i + 3]) return null;
+    return toHex(this.data[i], this.data[i + 1], this.data[i + 2]);
+  }
   rect(x, y, w, h, color) {
     for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) this.set(i, j, color);
   }
-  /** Fill a polygon by sampling pixel centres. fill = colour or (sx, sy) => colour. */
+  /** Fill a polygon by sampling pixel centres. fill = colour or (sx, sy, px, py) => colour. */
   fillPoly(pts, fill) {
     const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
     const x0 = Math.floor(Math.min(...xs)), x1 = Math.ceil(Math.max(...xs));
@@ -103,9 +141,27 @@ export class PixelCanvas {
       for (let x = x0; x < x1; x++) {
         const cx = x + 0.5, cy = y + 0.5;
         if (!inside(pts, cx, cy)) continue;
-        this.set(x, y, typeof fill === 'function' ? fill(cx, cy) : fill);
+        this.set(x, y, typeof fill === 'function' ? fill(cx, cy, x, y) : fill);
       }
     }
+  }
+  /**
+   * Darken the outermost pixels of every shape (a "selective inner outline").
+   * Keeps silhouettes the same size but gives each object a crisp edge.
+   */
+  innerOutline(ink, amount = 0.5) {
+    const src = this.data.slice();
+    const [ir, ig, ib] = rgba(ink);
+    const opaque = (x, y) => x >= 0 && y >= 0 && x < this.w && y < this.h && src[(y * this.w + x) * 4 + 3] > 0;
+    for (let y = 0; y < this.h; y++)
+      for (let x = 0; x < this.w; x++) {
+        if (!opaque(x, y)) continue;
+        if (opaque(x - 1, y) && opaque(x + 1, y) && opaque(x, y - 1) && opaque(x, y + 1)) continue;
+        const i = (y * this.w + x) * 4;
+        this.data[i] = Math.round(src[i] + (ir - src[i]) * amount);
+        this.data[i + 1] = Math.round(src[i + 1] + (ig - src[i + 1]) * amount);
+        this.data[i + 2] = Math.round(src[i + 2] + (ib - src[i + 2]) * amount);
+      }
   }
   /** Bounding box of the non-transparent pixels. */
   bounds() {
@@ -154,30 +210,32 @@ function inside(pts, x, y) {
 
 /* ---------- isometric projection (2:1 grid) ----------
    Room axes: X runs to the lower right, Y to the lower left, Z is up.
-   One unit along X or Y moves 1px across and 0.5px down, so edges step 2:1. */
-export function makeIso(OX, OY) {
-  const P = (X, Y, Z) => [OX + X - Y, OY + (X + Y) / 2 - Z];
+   U = pixels per room unit. One unit along X or Y moves U px across and U/2 px down. */
+export function makeIso(OX, OY, U = 1) {
+  const P = (X, Y, Z) => [OX + U * (X - Y), OY + (U / 2) * (X + Y) - U * Z];
   // Inverse projections: which room point is under a screen pixel, for a given plane
   const onTop = (sx, sy, Z) => {
-    const a = sx - OX, b = 2 * (sy - OY + Z);
+    const a = (sx - OX) / U, b = (sy - OY + U * Z) / (U / 2);
     return { X: (a + b) / 2, Y: (b - a) / 2, Z };
   };
+  const zFrom = (sy, X, Y) => (OY + (U / 2) * (X + Y) - sy) / U;
   const onFaceY = (sx, sy, Y) => {
-    const X = sx - OX + Y;
-    return { X, Y, Z: OY + (X + Y) / 2 - sy };
+    const X = (sx - OX) / U + Y;
+    return { X, Y, Z: zFrom(sy, X, Y) };
   };
   const onFaceX = (sx, sy, X) => {
-    const Y = X - (sx - OX);
-    return { X, Y, Z: OY + (X + Y) / 2 - sy };
+    const Y = X - (sx - OX) / U;
+    return { X, Y, Z: zFrom(sy, X, Y) };
   };
   const res = (f, p, b) => (typeof f === 'function' ? f(p, b) : f);
+  const withPx = (p, px, py) => Object.assign(p, { px, py });
 
   /** Draw the three visible faces of a box. styles: { top, front (faces +Y), side (faces +X) } */
   function box(cv, b, s) {
     const { x0, x1, y0, y1, z0, z1 } = b;
-    if (s.front) cv.fillPoly([P(x0, y1, z1), P(x1, y1, z1), P(x1, y1, z0), P(x0, y1, z0)], (sx, sy) => res(s.front, onFaceY(sx, sy, y1), b));
-    if (s.side) cv.fillPoly([P(x1, y0, z1), P(x1, y1, z1), P(x1, y1, z0), P(x1, y0, z0)], (sx, sy) => res(s.side, onFaceX(sx, sy, x1), b));
-    if (s.top) cv.fillPoly([P(x0, y0, z1), P(x1, y0, z1), P(x1, y1, z1), P(x0, y1, z1)], (sx, sy) => res(s.top, onTop(sx, sy, z1), b));
+    if (s.front) cv.fillPoly([P(x0, y1, z1), P(x1, y1, z1), P(x1, y1, z0), P(x0, y1, z0)], (sx, sy, px, py) => res(s.front, withPx(onFaceY(sx, sy, y1), px, py), b));
+    if (s.side) cv.fillPoly([P(x1, y0, z1), P(x1, y1, z1), P(x1, y1, z0), P(x1, y0, z0)], (sx, sy, px, py) => res(s.side, withPx(onFaceX(sx, sy, x1), px, py), b));
+    if (s.top) cv.fillPoly([P(x0, y0, z1), P(x1, y0, z1), P(x1, y1, z1), P(x0, y1, z1)], (sx, sy, px, py) => res(s.top, withPx(onTop(sx, sy, z1), px, py), b));
   }
   /** Screen corners of a box (for hit polygons). */
   function corners(b) {
@@ -185,7 +243,12 @@ export function makeIso(OX, OY) {
     for (const X of [b.x0, b.x1]) for (const Y of [b.y0, b.y1]) for (const Z of [b.z0, b.z1]) out.push(P(X, Y, Z));
     return out;
   }
-  return { P, onTop, onFaceY, onFaceX, box, corners };
+  /** Fill a flat region on a plane: plane = 'top' (Z), 'x' (X) or 'y' (Y). */
+  function plane(cv, kind, value, poly3d, fill) {
+    const inv = kind === 'top' ? onTop : kind === 'x' ? onFaceX : onFaceY;
+    cv.fillPoly(poly3d.map((q) => P(...q)), (sx, sy, px, py) => fill(withPx(inv(sx, sy, value), px, py)));
+  }
+  return { P, onTop, onFaceY, onFaceX, box, corners, plane };
 }
 
 /** Convex hull (monotone chain), pushed outward by pad pixels. */
