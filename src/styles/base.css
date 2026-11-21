@@ -1,0 +1,200 @@
+/* Base styles: reset, typography, buttons, shared helpers. Colours come from tokens.css. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  line-height: var(--leading-body);
+  cursor: var(--cursor-default);
+  overflow: hidden; /* the app is a single desktop "screen"; windows scroll inside */
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-family: var(--font-pixel);
+  font-weight: 400;
+  line-height: var(--leading-pixel);
+}
+
+p {
+  margin: 0;
+  max-width: var(--measure);
+}
+
+ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+a {
+  color: var(--color-accent);
+  text-underline-offset: 3px;
+}
+
+a,
+button,
+[role='tab'] {
+  cursor: var(--cursor-pointer);
+}
+
+img {
+  display: block;
+}
+
+:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 3px;
+}
+
+/* ---------- Buttons: neobrutal "press down" ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: var(--border-thick) solid var(--color-shadow);
+  border-radius: var(--radius);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1.4;
+  text-decoration: none;
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease),
+    background-color var(--dur-fast) var(--ease);
+}
+.btn:hover {
+  background: color-mix(in srgb, var(--color-accent) 88%, var(--color-text));
+}
+.btn:active {
+  transform: translate(var(--press-offset), var(--press-offset));
+  box-shadow: 0 0 0 var(--color-shadow);
+}
+.btn--ghost {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+.btn--ghost:hover {
+  background: var(--color-surface-2);
+}
+.btn[aria-disabled='true'] {
+  background: var(--color-surface);
+  color: var(--color-muted);
+  border-color: var(--color-muted);
+  border-style: dashed;
+}
+
+/* Square icon-only button (window controls, sound toggle) */
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: var(--border-thin) solid currentColor;
+  border-radius: var(--radius);
+  background: transparent;
+  color: inherit;
+  box-shadow: 2px 2px 0 var(--color-shadow);
+  transition:
+    transform var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
+}
+.icon-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 var(--color-shadow);
+}
+
+/* ---------- Helpers ---------- */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.pixel-label {
+  font-family: var(--font-pixel);
+  font-size: var(--pixel-xs);
+  line-height: var(--leading-pixel);
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+/* Content placeholders like [PROJECT NAME]: obviously unfinished on purpose */
+.ph {
+  color: var(--color-muted);
+  font-style: normal;
+  border-bottom: 1px dashed var(--color-muted);
+}
+
+.cursor-blink {
+  display: inline-block;
+  width: 0.6em;
+  height: 1em;
+  margin-left: 0.1em;
+  vertical-align: text-bottom;
+  background: currentColor;
+  animation: blink 1s steps(1) infinite;
+}
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.skip-link {
+  position: fixed;
+  left: var(--space-4);
+  top: -4rem;
+  z-index: 100;
+}
+.skip-link:focus {
+  top: var(--space-4);
+}
+
+/* Pixel scrollbars */
+* {
+  scrollbar-color: var(--color-accent-2) var(--color-bg);
+  scrollbar-width: thin;
+}
+
+/* ---------- Reduced motion: no tilt/zoom animation, no typing, windows just appear ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    transition-delay: 0s !important;
+  }
+  .cursor-blink {
+    animation: none;
+  }
+}

@@ -1,0 +1,105 @@
+/* =========================================================
+   Design tokens: "Dusk session" (PORTFOLIO_BRIEF.md sections 4–6)
+   Every colour, font, size and timing lives here.
+   Components always use var(--…), never raw hex values.
+   ========================================================= */
+:root {
+  /* ---------- UI colours ---------- */
+  --color-bg: #1e1626; /* page background */
+  --color-surface: #2c2135; /* windows, cards */
+  --color-surface-2: #3a2c46; /* card hover */
+  --color-text: #f6e7d6; /* main text, 12.6:1 on surface */
+  --color-muted: #b9a6b8; /* secondary text, 6.7:1 on surface */
+  --color-accent: #ff9f43; /* buttons, title bars, links, 7.5:1 on surface */
+  --color-on-accent: #1e1626; /* text on accent, 8.6:1 */
+  --color-accent-2: #9d8cff; /* monitor glow, highlights, focus ring, 5.5:1 on surface */
+  --color-border: #f6e7d6; /* window outlines */
+  --color-shadow: #0e0a12; /* hard pixel shadows */
+
+  /* Derived from the tokens above (no new hues) */
+  --color-scrim: color-mix(in srgb, var(--color-shadow) 55%, transparent); /* dimmed background behind windows */
+  --color-line: color-mix(in srgb, var(--color-border) 30%, transparent); /* thin tile borders */
+
+  /* ---------- Pixel scene colours (decorative only, never for text) ---------- */
+  --scene-wall: #2a1f33;
+  --scene-sky: #4b2f5c;
+  --scene-horizon: #b4476a;
+  --scene-sun: #ff9f43;
+  --scene-desk: #4a3242;
+  --scene-floor: #1e1626;
+
+  /* Sky at other times of day (the Dusk values above are the default) */
+  --scene-sky-dawn: #5b4a7e;
+  --scene-horizon-dawn: #e58f7c;
+  --scene-sun-dawn: #ffc38a;
+  --scene-sky-day: #8e9ce6;
+  --scene-horizon-day: #f3cba5;
+  --scene-sun-day: #ffe7b0;
+  --scene-sky-night: #130e1d;
+  --scene-horizon-night: #2f2147;
+  --scene-moon: #f6e7d6;
+
+  /* ---------- Typography ---------- */
+  --font-pixel: 'Press Start 2P', ui-monospace, monospace; /* headings, title bars, nav: 1–4 words only */
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace; /* body, descriptions, buttons */
+
+  /* Type scale, ratio ~1.333, responsive with clamp() */
+  --text-xs: clamp(0.6875rem, 0.66rem + 0.1vw, 0.75rem); /* ~12px */
+  --text-sm: clamp(0.8125rem, 0.79rem + 0.1vw, 0.875rem); /* ~14px */
+  --text-base: clamp(0.9375rem, 0.9rem + 0.15vw, 1rem); /* 16px */
+  --text-md: clamp(1.125rem, 1.05rem + 0.3vw, 1.333rem); /* ~21px */
+  --text-lg: clamp(1.4rem, 1.25rem + 0.6vw, 1.777rem); /* ~28px */
+  --text-xl: clamp(1.8rem, 1.5rem + 1vw, 2.369rem); /* ~38px */
+
+  /* Press Start 2P is very wide, so pixel headings use their own smaller steps */
+  --pixel-xs: 0.5625rem; /* 9px: tiny labels */
+  --pixel-sm: 0.6875rem; /* 11px: title bars, nav */
+  --pixel-md: clamp(0.8125rem, 0.75rem + 0.25vw, 1rem); /* card titles */
+  --pixel-lg: clamp(1rem, 0.9rem + 0.4vw, 1.333rem); /* window headings */
+  --pixel-xl: clamp(1.333rem, 1.1rem + 0.9vw, 1.777rem); /* hero name */
+
+  --leading-pixel: 1.4;
+  --leading-body: 1.6;
+  --measure: 65ch;
+
+  /* ---------- Spacing (8px grid) ---------- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+
+  /* ---------- Retro-brutal shapes ---------- */
+  --radius: 0; /* sharp corners everywhere */
+  --border-thick: 3px;
+  --border-thin: 2px;
+  --shadow-sm: 4px 4px 0 var(--color-shadow);
+  --shadow-md: 6px 6px 0 var(--color-shadow);
+  --shadow-lg: 10px 10px 0 var(--color-shadow);
+  --press-offset: 4px;
+
+  /* Pixel outline used on hovered/focused room objects */
+  --glow-hover: drop-shadow(1px 0 0 var(--color-accent-2)) drop-shadow(-1px 0 0 var(--color-accent-2))
+    drop-shadow(0 1px 0 var(--color-accent-2)) drop-shadow(0 -1px 0 var(--color-accent-2));
+
+  /* ---------- Motion ---------- */
+  --ease: cubic-bezier(0.16, 1, 0.3, 1); /* the one easing curve */
+  --dur-fast: 0.15s; /* hover / press */
+  --dur-window: 0.4s; /* window open / close */
+  --dur-reveal: 0.9s; /* section reveals, camera zoom */
+  --zoom-scale: 2.2; /* how far the camera zooms into an object */
+  --zoom-window-delay: 0.75s; /* window opens after the zoom */
+  --tilt-zoomed: 0.3; /* tilt strength while zoomed */
+
+  /* ---------- Layout ---------- */
+  --topbar-h: 3.5rem;
+  --intro-w: 22rem;
+  --window-w: min(46rem, 56vw);
+  --focus-ring: 3px solid var(--color-accent-2);
+
+  /* ---------- Cursor ---------- */
+  --cursor-default: url('/cursor/arrow.png') 1 1, auto;
+  --cursor-pointer: url('/cursor/hand.png') 11 1, pointer;
+}

@@ -1,0 +1,233 @@
+/* Dimmed background behind an open window (click it to close) */
+.scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background: var(--color-scrim);
+  animation: scrim-in var(--dur-window) var(--ease) both;
+}
+.scrim[data-phase='closing'] {
+  animation: scrim-out var(--dur-window) var(--ease) both;
+}
+@keyframes scrim-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes scrim-out {
+  to {
+    opacity: 0;
+  }
+}
+
+.win {
+  position: absolute;
+  z-index: 30;
+  top: var(--space-5);
+  right: var(--space-5);
+  bottom: var(--space-5);
+  width: var(--window-w);
+  display: flex;
+  flex-direction: column;
+  border: var(--border-thick) solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+  animation: win-open var(--dur-window) var(--ease) both;
+}
+.win:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 4px;
+}
+.win[data-phase='closing'] {
+  animation: win-close var(--dur-window) var(--ease) both;
+}
+@keyframes win-open {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+}
+@keyframes win-close {
+  to {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+}
+
+.win__bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  border-bottom: var(--border-thick) solid var(--color-border);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.win__title {
+  font-size: var(--pixel-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.win__controls {
+  display: flex;
+  gap: var(--space-2);
+}
+.win__controls .icon-btn {
+  width: 1.75rem;
+  height: 1.75rem;
+  background: var(--color-accent);
+}
+.win__controls .icon-btn:hover {
+  background: color-mix(in srgb, var(--color-accent) 80%, var(--color-text));
+}
+
+.win__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-5);
+  overscroll-behavior: contain;
+}
+
+.win__foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-5);
+  border-top: var(--border-thin) solid var(--color-line);
+}
+.win__hint {
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+}
+
+/* ---------- Shared content styles used inside windows ---------- */
+.section-head {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+.section-head h3 {
+  font-size: var(--pixel-lg);
+}
+.section-head p {
+  color: var(--color-muted);
+}
+
+/* Bento grid of tiles */
+.bento {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--space-4);
+}
+.tile {
+  grid-column: span 3;
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--border-thin) solid var(--color-line);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-sm);
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease);
+}
+.tile:hover {
+  background: var(--color-surface-2);
+  border-color: var(--color-accent-2);
+}
+.tile--wide {
+  grid-column: span 4;
+}
+.tile--narrow {
+  grid-column: span 2;
+}
+.tile--full {
+  grid-column: 1 / -1;
+}
+.tile h4 {
+  font-size: var(--pixel-md);
+  color: var(--color-text);
+}
+.tile p {
+  font-size: var(--text-sm);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.chip {
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-accent-2);
+  color: var(--color-text);
+  font-size: var(--text-xs);
+  line-height: 1.8;
+}
+
+.facts {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+.facts dt {
+  font-family: var(--font-pixel);
+  font-size: var(--pixel-xs);
+  line-height: var(--leading-pixel);
+  text-transform: uppercase;
+  color: var(--color-accent-2);
+}
+.facts dd {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.links-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+  font-size: var(--text-sm);
+}
+.smart-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.smart-link--todo {
+  color: var(--color-muted);
+}
+
+/* Dashed box standing in for an image that hasn't been added yet */
+.img-placeholder {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 9;
+  border: var(--border-thin) dashed var(--color-muted);
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+  text-align: center;
+  padding: var(--space-3);
+}
+
+/* Scroll reveal: tiles slide up and fade in */
+.reveal {
+  opacity: 0;
+  translate: 0 24px;
+  transition:
+    opacity var(--dur-reveal) var(--ease),
+    translate var(--dur-reveal) var(--ease),
+    background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease);
+  transition-delay: calc(var(--i) * 70ms), calc(var(--i) * 70ms), 0s, 0s;
+}
+.reveal.is-shown {
+  opacity: 1;
+  translate: 0 0;
+}

@@ -1,0 +1,381 @@
+/* =========================================================
+   The Workbench room
+   stage (perspective, overflow hidden)
+     └ zoom container (translate + scale = the "camera")
+         └ tilt container (rotateX / rotateY from the mouse)
+             └ layers + objects (translateZ depths)
+   ========================================================= */
+
+.room-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  transition: perspective-origin var(--dur-reveal) var(--ease);
+
+  /* Sky + room lighting for each time of day (Dusk is the default palette) */
+  --sky-top: var(--scene-sky);
+  --sky-bottom: var(--scene-horizon);
+  --sun-color: var(--scene-sun);
+  --sun-x: 20px;
+  --sun-y: 42px;
+  --sun-size: 14px;
+  --stars: 0.35;
+  --lights: 0.9;
+  --spill: color-mix(in srgb, var(--scene-sun) 14%, transparent);
+  --room-light: brightness(1) saturate(1) sepia(0);
+}
+.room-stage.sky--dawn {
+  --sky-top: var(--scene-sky-dawn);
+  --sky-bottom: var(--scene-horizon-dawn);
+  --sun-color: var(--scene-sun-dawn);
+  --sun-x: 34px;
+  --sun-y: 36px;
+  --stars: 0.1;
+  --lights: 0.5;
+  --spill: color-mix(in srgb, var(--scene-sun-dawn) 14%, transparent);
+  --room-light: brightness(1.06) saturate(1) sepia(0.08);
+}
+.room-stage.sky--day {
+  --sky-top: var(--scene-sky-day);
+  --sky-bottom: var(--scene-horizon-day);
+  --sun-color: var(--scene-sun-day);
+  --sun-x: 28px;
+  --sun-y: 8px;
+  --sun-size: 12px;
+  --stars: 0;
+  --lights: 0;
+  --spill: color-mix(in srgb, var(--scene-sun-day) 20%, transparent);
+  --room-light: brightness(1.16) saturate(1.05) sepia(0);
+}
+.room-stage.sky--night {
+  --sky-top: var(--scene-sky-night);
+  --sky-bottom: var(--scene-horizon-night);
+  --sun-color: var(--scene-moon);
+  --sun-x: 12px;
+  --sun-y: 10px;
+  --sun-size: 8px;
+  --stars: 1;
+  --lights: 1;
+  --spill: color-mix(in srgb, var(--color-accent-2) 8%, transparent);
+  --room-light: brightness(0.84) saturate(0.85) sepia(0);
+}
+
+.room-zoom {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 50% 50%;
+  transform-style: preserve-3d;
+  transition: transform var(--dur-reveal) var(--ease);
+  will-change: transform;
+}
+
+.room-tilt {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--rx, 6deg)) rotateY(var(--ry, -6deg));
+  transition: transform var(--dur-window) var(--ease);
+}
+
+.room-layer,
+.room-obj {
+  position: absolute;
+  pointer-events: none;
+}
+.room-layer {
+  inset: 0;
+}
+
+.room-art {
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  filter: var(--room-light);
+  transition: filter var(--dur-fast) var(--ease);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* ---------- Opening: the room loads in, layer by layer ---------- */
+.room-stage.is-loading .room-layer,
+.room-stage.is-loading .room-obj {
+  opacity: 0;
+}
+.room-stage.is-loaded .room-layer,
+.room-stage.is-loaded .room-obj {
+  animation: room-drop-in var(--dur-reveal) var(--ease) both;
+  animation-delay: calc(var(--i) * 120ms);
+}
+@keyframes room-drop-in {
+  from {
+    opacity: 0;
+    translate: 0 -14px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+/* ---------- Light from the window onto the floor ---------- */
+.room-floor-light {
+  position: absolute;
+  inset: 0;
+  background: var(--spill);
+  transition: background-color 4s var(--ease);
+}
+
+/* ---------- Clickable objects ---------- */
+.room-hit {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: auto;
+  cursor: var(--cursor-pointer);
+}
+.room-hit:focus-visible {
+  outline: none; /* the clip-path would cut it off; the object glows instead (below) */
+}
+.room-obj.is-hot .room-art {
+  filter: var(--room-light) var(--glow-hover);
+}
+.room-obj:has(.room-hit:focus-visible) .room-art {
+  filter: var(--room-light) var(--glow-hover) var(--glow-hover); /* 2px ring for keyboard focus */
+}
+.room-stage.is-inert .room-hit {
+  pointer-events: none;
+}
+
+/* "Explore the desk": each object flashes its outline once */
+.room-obj.is-pinging .room-art {
+  animation: room-ping 0.9s var(--ease) var(--ping-delay) 2 both;
+}
+@keyframes room-ping {
+  0%,
+  100% {
+    filter: var(--room-light);
+  }
+  50% {
+    filter: var(--room-light) var(--glow-hover) var(--glow-hover);
+  }
+}
+
+/* Tooltip like "> projects.exe". Sizes are divided by --s so they stay the same on screen. */
+.room-tip {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  transform: translate(-50%, calc(-6px / var(--s)));
+  padding: calc(3px / var(--s)) calc(8px / var(--s));
+  border: calc(2px / var(--s)) solid var(--color-accent-2);
+  background: var(--color-surface);
+  box-shadow: calc(3px / var(--s)) calc(3px / var(--s)) 0 var(--color-shadow);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: calc(13px / var(--s));
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+.room-obj.is-hot .room-tip {
+  opacity: 1;
+}
+.room-stage.is-zoomed .room-tip {
+  display: none;
+}
+
+/* ---------- Monitor screen (sits on the screen's slanted face) ---------- */
+.room-screen {
+  position: absolute;
+  transform: skewY(26.565deg); /* the 2:1 isometric slope */
+  transform-origin: 0 0;
+  overflow: hidden;
+  padding: 2px 3px;
+  color: color-mix(in srgb, var(--color-accent-2) 55%, var(--color-text));
+  font-family: var(--font-mono);
+  font-size: 3.8px;
+  line-height: 1.4;
+  white-space: pre;
+  opacity: 0;
+}
+.room-screen.is-on {
+  animation: screen-flicker 0.7s steps(1) 0.5s both;
+}
+.room-screen__cmd {
+  color: var(--color-accent);
+}
+@keyframes screen-flicker {
+  0% {
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  25% {
+    opacity: 0.2;
+  }
+  40% {
+    opacity: 1;
+  }
+  55% {
+    opacity: 0.4;
+  }
+  70%,
+  100% {
+    opacity: 1;
+  }
+}
+
+/* ---------- Desk clock ---------- */
+.room-clock {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  transform: skewY(26.565deg);
+  transform-origin: 0 0;
+  color: var(--color-accent);
+}
+.room-clock svg {
+  width: 17px;
+  height: 5px;
+}
+
+/* ---------- Sky through the window ---------- */
+.sky {
+  position: absolute;
+  overflow: hidden;
+}
+.sky__bands {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+}
+.sky__bands > span {
+  flex: 1;
+  transition: background-color 4s var(--ease);
+}
+.sky__bands > span:nth-child(1) {
+  background: var(--sky-top);
+}
+.sky__bands > span:nth-child(2) {
+  background: color-mix(in srgb, var(--sky-top), var(--sky-bottom) 22%);
+}
+.sky__bands > span:nth-child(3) {
+  background: color-mix(in srgb, var(--sky-top), var(--sky-bottom) 45%);
+}
+.sky__bands > span:nth-child(4) {
+  background: color-mix(in srgb, var(--sky-top), var(--sky-bottom) 70%);
+}
+.sky__bands > span:nth-child(5) {
+  background: var(--sky-bottom);
+}
+.sky__ground {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--sky-bottom), var(--color-shadow) 60%);
+  transition: background-color 4s var(--ease);
+}
+.sky__sun {
+  position: absolute;
+  left: var(--sun-x);
+  top: var(--sun-y);
+  width: var(--sun-size);
+  height: var(--sun-size);
+  background: var(--sun-color);
+  /* a stepped "pixel" circle */
+  clip-path: polygon(33% 0, 67% 0, 67% 8%, 83% 8%, 83% 17%, 92% 17%, 92% 33%, 100% 33%, 100% 67%, 92% 67%, 92% 83%, 83% 83%, 83% 92%, 67% 92%, 67% 100%, 33% 100%, 33% 92%, 17% 92%, 17% 83%, 8% 83%, 8% 67%, 0 67%, 0 33%, 8% 33%, 8% 17%, 17% 17%, 17% 8%, 33% 8%);
+  transition:
+    left 4s var(--ease),
+    top 4s var(--ease),
+    width 4s var(--ease),
+    height 4s var(--ease),
+    background-color 4s var(--ease);
+}
+.sky__stars {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  background: var(--scene-moon);
+  box-shadow:
+    8px 6px var(--scene-moon),
+    22px 3px var(--scene-moon),
+    40px 9px var(--scene-moon),
+    30px 18px var(--scene-moon),
+    14px 24px var(--scene-moon),
+    48px 22px var(--scene-moon),
+    4px 34px var(--scene-moon),
+    36px 32px var(--scene-moon),
+    52px 4px var(--scene-moon);
+  opacity: var(--stars);
+  transition: opacity 4s var(--ease);
+  animation: twinkle 3s steps(2) infinite;
+}
+@keyframes twinkle {
+  50% {
+    translate: 1px 0;
+  }
+}
+.sky__city,
+.sky__lights {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+.sky__lights {
+  opacity: var(--lights);
+  transition: opacity 4s var(--ease);
+}
+
+/* ---------- "Explore the desk" prompt ---------- */
+.room-prompt {
+  position: absolute;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: var(--border-thick) solid var(--color-accent-2);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  box-shadow: var(--shadow-sm);
+  animation: prompt-in var(--dur-window) var(--ease) both;
+  transition:
+    box-shadow var(--dur-fast) var(--ease),
+    translate var(--dur-fast) var(--ease);
+}
+.room-prompt:active {
+  translate: var(--press-offset) var(--press-offset);
+  box-shadow: 0 0 0 var(--color-shadow);
+}
+.room-prompt kbd {
+  padding: 0 var(--space-1);
+  border: 1px solid var(--color-muted);
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+@keyframes prompt-in {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+  }
+}

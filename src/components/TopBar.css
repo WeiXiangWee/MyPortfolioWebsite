@@ -1,0 +1,101 @@
+.topbar {
+  position: relative;
+  z-index: 40;
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: 0 var(--space-5);
+  border-bottom: var(--border-thick) solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.topbar__logo {
+  font-family: var(--font-pixel);
+  font-size: var(--pixel-md);
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.topbar__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.topbar__link,
+.topbar__dropdown a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-thin) solid transparent;
+  background: none;
+  color: var(--color-text);
+  font-family: var(--font-pixel);
+  font-size: var(--pixel-sm);
+  line-height: var(--leading-pixel);
+  text-decoration: none;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease);
+}
+.topbar__link:hover {
+  border-color: var(--color-accent-2);
+}
+.topbar__link.active {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.topbar__menu {
+  position: relative;
+}
+.topbar__caret {
+  display: inline-flex;
+  transition: rotate var(--dur-fast) var(--ease);
+}
+.topbar__caret.is-open {
+  rotate: 180deg;
+}
+.topbar__dropdown {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  min-width: 15rem;
+  display: grid;
+  padding: var(--space-2);
+  border: var(--border-thick) solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  animation: dropdown-in var(--dur-fast) var(--ease) both;
+}
+.topbar__dropdown[hidden] {
+  display: none;
+}
+.topbar__dropdown a {
+  width: 100%;
+}
+.topbar__dropdown a:hover {
+  background: var(--color-surface-2);
+}
+.topbar__dropdown a.active {
+  color: var(--color-accent);
+}
+@keyframes dropdown-in {
+  from {
+    opacity: 0;
+    translate: 0 -6px;
+  }
+}
+
+.topbar__right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.topbar__time {
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+}

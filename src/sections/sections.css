@@ -1,0 +1,95 @@
+/* ---------- Portfolio tabs ---------- */
+.tabs {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+  border-bottom: var(--border-thick) solid var(--color-border);
+}
+.tabs__tab {
+  margin-bottom: calc(var(--border-thick) * -1);
+  padding: var(--space-2) var(--space-4);
+  border: var(--border-thick) solid var(--color-border);
+  border-bottom: 0;
+  background: var(--color-bg);
+  color: var(--color-muted);
+  font-family: var(--font-pixel);
+  font-size: var(--pixel-xs);
+  line-height: var(--leading-pixel);
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+.tabs__tab:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+.tabs__tab[aria-selected='true'] {
+  background: var(--color-surface);
+  color: var(--color-accent);
+  border-bottom: var(--border-thick) solid var(--color-surface);
+}
+.tabs__tab:focus-visible {
+  outline-offset: -6px;
+}
+
+/* ---------- Projects ---------- */
+.project__shot {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border: var(--border-thin) solid var(--color-line);
+}
+
+/* ---------- Contact ---------- */
+.contact-link {
+  font-size: var(--text-base);
+  font-weight: 500;
+}
+
+/* ---------- Terminal-style blocks (404 + easter egg) ---------- */
+.terminal-block {
+  display: grid;
+  gap: var(--space-3);
+  min-height: 100%;
+  align-content: start;
+  font-family: var(--font-mono);
+}
+.terminal-block p {
+  white-space: pre-wrap;
+}
+.term-prompt {
+  color: var(--color-accent-2);
+}
+.term-error,
+.term-err {
+  color: var(--color-accent);
+  font-weight: 500;
+}
+.term-ok {
+  color: var(--color-accent-2);
+}
+.term-muted {
+  color: var(--color-muted);
+}
+.term-input {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+.term-input input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  caret-color: var(--color-accent);
+}
+.term-input input:focus-visible {
+  outline: none;
+}
+.term-input:focus-within {
+  outline: var(--focus-ring);
+  outline-offset: 4px;
+}

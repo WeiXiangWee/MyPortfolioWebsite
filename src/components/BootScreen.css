@@ -1,0 +1,64 @@
+.boot {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  background: var(--color-bg);
+  transition: opacity var(--dur-window) var(--ease);
+}
+.boot.is-leaving {
+  opacity: 0;
+}
+
+.boot__inner {
+  width: min(36rem, 100% - 2 * var(--space-5));
+  display: grid;
+  gap: var(--space-4);
+}
+
+.boot__name {
+  font-family: var(--font-pixel);
+  font-size: var(--pixel-xl);
+  line-height: var(--leading-pixel);
+  color: var(--color-accent);
+}
+.boot__role {
+  font-family: var(--font-pixel);
+  font-size: var(--pixel-md);
+  line-height: var(--leading-pixel);
+}
+
+.boot__log {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-height: 9.6em; /* room for all lines so nothing jumps */
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+.boot__log li:first-child {
+  color: var(--color-accent-2);
+}
+
+.boot__bar {
+  height: 1rem;
+  border: var(--border-thin) solid var(--color-border);
+  padding: 2px;
+}
+.boot__bar span {
+  display: block;
+  height: 100%;
+  background: var(--color-accent-2);
+  transform-origin: left;
+  animation: boot-fill linear both;
+}
+@keyframes boot-fill {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+.boot__skip {
+  justify-self: end;
+}
