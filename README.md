@@ -41,7 +41,9 @@ npm run art      # rebuild the 3D room textures, cursors, favicon and sounds
 | `/contact` | Desk phone | contact.exe |
 | anything else | Monitor | error.exe (404) |
 
-The floppy disk on the desk is the **Download CV** button, and clicking the **floor lamp** switches its warm light on and off. Click the **gaming chair** and it swivels round to face you, revealing the poodle on the seat; click the **poodle** and it barks (sound plays when the speaker in the top bar is on). The desk clock shows the real time in Singapore, and that time sets the sky outside the window (dawn / day / dusk / night). Add `?sky=day` (or `dawn`, `dusk`, `night`) to any URL to preview another sky.
+The floppy disk on the desk is the **Download CV** button, and clicking the **floor lamp** switches its warm light on and off. Click the **gaming chair** and it swivels round to face you, revealing the poodle on the seat; click the **poodle** and it barks (sound plays when the speaker in the top bar is on).
+
+The speaker button also plays quiet background music (`public/music/dusk-lofi-loop.mp3`, looped without gaps). It plays at 25% volume, just under the sound effects, and dips to half whenever an effect plays. To change its level, edit `MUSIC_VOLUME` in `src/hooks/backgroundMusic.js`. The desk clock shows the real time in Singapore, and that time sets the sky outside the window (dawn / day / dusk / night). Add `?sky=day` (or `dawn`, `dusk`, `night`) to any URL to preview another sky.
 
 ## How the 3D room works
 

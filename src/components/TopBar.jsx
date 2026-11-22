@@ -96,7 +96,8 @@ export function TopBar({ time }) {
           type="button"
           className="icon-btn"
           aria-pressed={enabled}
-          aria-label={enabled ? 'Sound on. Turn sound off' : 'Sound off. Turn sound on'}
+          aria-label={enabled ? 'Sound and music on. Turn them off' : 'Sound and music off. Turn them on'}
+          title={enabled ? 'Sound + music: on' : 'Sound + music: off'}
           onClick={toggle}
         >
           <PixelIcon name={enabled ? 'soundOn' : 'soundOff'} size={14} />
