@@ -12,6 +12,7 @@ import { TopBar } from './components/TopBar.jsx';
 import { Room } from './components/Room.jsx';
 import { IntroPanel } from './components/IntroPanel.jsx';
 import { BootScreen } from './components/BootScreen.jsx';
+import { StarSky } from './components/StarSky.jsx';
 import { RetroWindow } from './components/RetroWindow.jsx';
 import { About } from './sections/About.jsx';
 import { Skills } from './sections/Skills.jsx';
@@ -200,6 +201,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <StarSky />
       <a className="btn skip-link" href="#intro">
         Skip to content
       </a>
