@@ -23,6 +23,9 @@ export const OBJECTS = [
   { id: 'phone', section: 'contact', name: 'Desk phone', tooltip: '> contact.exe' },
   { id: 'floppy', action: 'resume', name: 'Floppy disk', tooltip: '> download_cv.pdf' },
   { id: 'lamp', action: 'lamp', name: 'Floor lamp', tooltip: '> lamp.on()', tooltipOn: '> lamp.off()' },
+  // The gaming chair and the poodle on it (drawn by the GamingChair part of Room.jsx)
+  { id: 'chair', action: 'chair', name: 'Gaming chair', tooltip: '> chair.turn()', special: true },
+  { id: 'dog', action: 'bark', name: 'Poodle on the chair', tooltip: '> bark()', special: true },
 ];
 
 /** Which window a URL opens. null = home (no window), 'notfound' = 404 window. */

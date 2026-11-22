@@ -134,6 +134,8 @@ function tone(notes, vol = 0.25) {
   }
   return out;
 }
+// Note: public/sfx/bark.wav is a real recording of wx's poodle (trimmed from a phone video),
+// so it is NOT generated here. Don't add a "bark" entry below or it would be overwritten.
 const sfx = {
   hover: tone([[880, 880, 0.03]], 0.12),
   click: tone([[660, 660, 0.03], [990, 990, 0.04]], 0.18),

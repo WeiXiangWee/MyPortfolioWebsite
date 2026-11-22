@@ -151,10 +151,21 @@ export default function App() {
 
   // ---------- Clicking objects in the room ----------
   const [lampOn, setLampOn] = useState(false); // the floor lamp starts off; click it to switch it on
+  const [chairTurned, setChairTurned] = useState(false); // the gaming chair faces the desk until clicked
+  const [barks, setBarks] = useState(0); // counts barks so each click replays the bark animation
   const onActivate = (obj) => {
+    if (obj.action === 'bark') {
+      play('bark');
+      setBarks((n) => n + 1);
+      return;
+    }
     play('click');
     if (obj.action === 'lamp') {
       setLampOn((on) => !on);
+      return;
+    }
+    if (obj.action === 'chair') {
+      setChairTurned((t) => !t);
       return;
     }
     if (obj.action === 'resume') {
@@ -219,6 +230,8 @@ export default function App() {
           showPrompt={showPrompt}
           pinging={pinging}
           lampOn={lampOn}
+          chairTurned={chairTurned}
+          barks={barks}
           onExplore={explore}
           onActivate={onActivate}
           onHoverSound={() => play('hover')}

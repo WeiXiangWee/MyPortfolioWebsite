@@ -155,16 +155,19 @@
 .g--obj.is-hot .f {
   filter: brightness(1.2);
 }
-.g--obj.is-hot .f:not(.f--double) {
+.g--obj.is-hot .f:not(.f--double):not(.f--sprite) {
   box-shadow: inset 0 0 0 1px var(--color-accent-2);
 }
-/* keyboard focus: a stronger 2px ring */
-.g--obj:focus-visible .f:not(.f--double) {
+/* keyboard focus: a stronger 2px ring (sprites like the poodle get a lavender glow instead) */
+.g--obj:focus-visible .f:not(.f--double):not(.f--sprite) {
   box-shadow: inset 0 0 0 2px var(--color-accent-2);
+}
+.g--obj:focus-visible .f--sprite {
+  filter: brightness(1.2) drop-shadow(0 0 2px var(--color-accent-2)) drop-shadow(0 0 2px var(--color-accent-2));
 }
 
 /* "Explore the desk": each object flashes once */
-.g--obj.is-pinging .f:not(.f--double) {
+.g--obj.is-pinging .f:not(.f--double):not(.f--sprite) {
   animation: room-ping 0.9s var(--ease) var(--ping-delay) 2 both;
 }
 @keyframes room-ping {
@@ -200,7 +203,8 @@
   line-height: 1.4;
   white-space: nowrap;
 }
-.g--obj.is-hot .room-tip {
+.g--obj.is-hot .room-tip,
+.room-tip.is-shown {
   opacity: 1;
 }
 .room-stage.is-zoomed .room-tip,
@@ -208,6 +212,98 @@
   display: none;
 }
 
+/* ---------- Gaming chair (Racer) + poodle ---------- */
+.chair {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-style: preserve-3d;
+  transition: transform var(--dur-reveal) var(--ease); /* the swivel */
+}
+
+/* poodle frames: idle normally, mouth open while barking */
+.g--dog .f--bark {
+  visibility: hidden;
+}
+.g--dog.is-barking .f--idle {
+  visibility: hidden;
+}
+.g--dog.is-barking .f--bark {
+  visibility: visible;
+}
+.g--dog .dog-hop {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-style: preserve-3d;
+}
+/* the poodle hops twice when it barks */
+.g--dog.is-barking .dog-hop {
+  animation: dog-hop 0.5s var(--ease) 2;
+}
+@keyframes dog-hop {
+  50% {
+    translate: 0 0 18px;
+  }
+}
+
+/* the bark: a pixel speech bubble beside the poodle's head */
+.bark {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+.bark__bubble {
+  position: absolute;
+  left: 34px;
+  bottom: 18px;
+  padding: 6px 10px;
+  border: 2px solid var(--color-shadow);
+  background: var(--color-text);
+  color: var(--color-on-accent);
+  box-shadow: 3px 3px 0 var(--color-shadow);
+  font-family: var(--font-pixel);
+  font-size: 14px;
+  line-height: 1.4;
+  white-space: nowrap;
+  transform-origin: 0 100%;
+  animation: bark-pop 1.25s var(--ease) both;
+}
+.bark__bubble::after {
+  /* little pixel tail pointing at the poodle */
+  content: '';
+  position: absolute;
+  left: -8px;
+  bottom: 4px;
+  width: 8px;
+  height: 6px;
+  background: var(--color-text);
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+@keyframes bark-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  15% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+  28% {
+    transform: scale(1);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
 /* ---------- Floor lamp light (click the lamp to switch it on/off) ---------- */
 .g--glow .f {
   opacity: 0;

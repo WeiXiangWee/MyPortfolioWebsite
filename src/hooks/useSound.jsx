@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 // Short 8-bit sounds made by scripts/make-extras.mjs. Muted by default.
-const NAMES = ['hover', 'click', 'open', 'close', 'zoom'];
+const NAMES = ['hover', 'click', 'open', 'close', 'zoom', 'bark'];
 const STORAGE_KEY = 'wx-sound-on';
 
 const SoundContext = createContext({ enabled: false, toggle: () => {}, play: () => {} });

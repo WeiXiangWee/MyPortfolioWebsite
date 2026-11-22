@@ -92,7 +92,104 @@ function Face({ f }) {
   if (f.c) style.transform = `translate3d(${f.c[0]}px, ${f.c[1]}px, ${f.c[2]}px) rotateZ(calc(-1 * var(--rz))) rotateX(calc(-1 * var(--rx))) translate(-50%, -50%)`;
   else style.transform = f.m;
   if (f.clip) style.clipPath = f.clip;
-  return <div className={`f${f.double ? ' f--double' : ''}`} style={style} />;
+  const cls = ['f', f.double && 'f--double', f.c && 'f--sprite', f.state && `f--${f.state}`].filter(Boolean).join(' ');
+  return <div className={cls} style={style} />;
+}
+
+/** A panel that always turns to face the camera, anchored at a room point. */
+const billboard = ([x, y, z], anchor = '-50%, -100%') =>
+  `translate3d(${x * U}px, ${y * U}px, ${z * U}px) rotateZ(calc(-1 * var(--rz))) rotateX(calc(-1 * var(--rx))) translate(${anchor})`;
+
+const BARK_TEXT = 'WOOF!';
+
+/**
+ * The gaming chair (Racer design) and the poodle sitting on it.
+ * Click the chair: it swivels to face you (and back). Click the poodle: it barks and hops.
+ * The poodle stands on the chair's swivel axis, so it can stay facing you while the chair turns underneath.
+ */
+function GamingChair({ turned, barks, interactive, pinging, hovered, setHovered, onActivate, onHoverSound }) {
+  const { chair, groups } = SCENE3D;
+  const top = chair.top;
+  const [barking, setBarking] = useState(false);
+  useEffect(() => {
+    if (!barks) return;
+    setBarking(true);
+    const t = setTimeout(() => setBarking(false), 1300);
+    return () => clearTimeout(t);
+  }, [barks]);
+
+  const chairObj = OBJECTS.find((o) => o.id === 'chair');
+  const dogObj = OBJECTS.find((o) => o.id === 'dog');
+  // swivel angle: 0 = facing the desk; facing you = 180° minus the camera's turn
+  const angle = turned ? 'calc(180deg - var(--rz))' : '0deg';
+  const ax = chair.x * U, ay = chair.y * U;
+  const buttonProps = (obj, label) => ({
+    id: `hit-${obj.id}`,
+    role: 'button',
+    tabIndex: interactive ? 0 : -1,
+    'aria-label': label,
+    onClick: (e) => onActivate(obj, e.currentTarget),
+    onKeyDown: (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onActivate(obj, e.currentTarget);
+      }
+    },
+    onPointerEnter: () => {
+      setHovered(obj.id);
+      onHoverSound();
+    },
+    onPointerLeave: () => setHovered((h) => (h === obj.id ? null : h)),
+    onFocus: () => setHovered(obj.id),
+    onBlur: () => setHovered((h) => (h === obj.id ? null : h)),
+  });
+
+  return (
+    <>
+      <div
+        className={`chair${turned ? ' is-turned' : ''}`}
+        style={{ transform: `translate3d(${ax}px, ${ay}px, 0px) rotateZ(${angle}) translate3d(${-ax}px, ${-ay}px, 0px)` }}
+      >
+        <div
+          {...buttonProps(chairObj, turned ? 'Gaming chair: turn back to the desk' : 'Gaming chair: turn to face you')}
+          className={`g g--obj g--chair${hovered === 'chair' ? ' is-hot' : ''}${pinging ? ' is-pinging' : ''}`}
+          style={{ '--i': 6, '--ping-delay': '960ms' }}
+        >
+          {groups.chair.faces.map((f, j) => (
+            <Face key={j} f={f} />
+          ))}
+        </div>
+      </div>
+
+      <div
+        {...buttonProps(dogObj, 'Poodle on the chair: bark')}
+        className={`g g--obj g--dog${hovered === 'dog' ? ' is-hot' : ''}${barking ? ' is-barking' : ''}`}
+        style={{ '--i': 6.5 }}
+      >
+        <div className="dog-hop">
+          {groups.dog.faces.map((f, j) => (
+            <Face key={j} f={f} />
+          ))}
+        </div>
+      </div>
+
+      {/* hover labels and the bark bubble always face you */}
+      <span className={`room-tip${hovered === 'chair' ? ' is-shown' : ''}`} aria-hidden="true" style={{ transform: billboard([chair.x, chair.y, top + 3]) }}>
+        <span>{chairObj.tooltip}</span>
+      </span>
+      <span className={`room-tip${hovered === 'dog' && !barking ? ' is-shown' : ''}`} aria-hidden="true" style={{ transform: billboard([chair.x, chair.y, chair.dogTop + 2]) }}>
+        <span>{dogObj.tooltip}</span>
+      </span>
+      {barking && (
+        <div key={barks} className="bark" aria-hidden="true" style={{ transform: billboard([chair.x, chair.y, chair.dogTop - 3], '-50%, -50%') }}>
+          <span className="bark__bubble">{BARK_TEXT}</span>
+        </div>
+      )}
+      <span className="visually-hidden" role="status">
+        {barking ? BARK_TEXT : ''}
+      </span>
+    </>
+  );
 }
 
 /** An HTML panel (screen text, clock, sky) placed in 3D like a face. */
@@ -109,6 +206,8 @@ export function Room({
   showPrompt,
   pinging,
   lampOn,
+  chairTurned,
+  barks,
   onExplore,
   onActivate,
   onHoverSound,
@@ -200,7 +299,7 @@ export function Room({
   ].join(' ');
 
   const { groups } = SCENE3D;
-  const objects = OBJECTS.filter((o) => groups[o.id]);
+  const objects = OBJECTS.filter((o) => groups[o.id] && !o.special);
   const scenery = ['walls', 'furniture', 'decor'];
 
   return (
@@ -293,6 +392,17 @@ export function Room({
               </div>
             );
           })}
+
+          <GamingChair
+            turned={chairTurned}
+            barks={barks}
+            interactive={interactive}
+            pinging={pinging}
+            hovered={hovered}
+            setHovered={setHovered}
+            onActivate={onActivate}
+            onHoverSound={onHoverSound}
+          />
         </div>
       </div>
 

@@ -106,6 +106,13 @@ function box(b, s, opts = {}) {
   if (s.top) face([x0, y0, z1], [dx, 0, 0], [0, dy, 0], (p) => res(s.top, p, b), opts);
   if (s.front) face([x0, y1, z1], [dx, 0, 0], [0, 0, -dz], (p) => res(s.front, p, b), opts);
   if (s.side) face([x1, y1, z1], [0, -dy, 0], [0, 0, -dz], (p) => res(s.side, p, b), opts);
+  // back (-Y) and left (-X) faces: only needed for things that rotate (the gaming chair)
+  if (s.back) face([x1, y0, z1], [-dx, 0, 0], [0, 0, -dz], (p) => res(s.back, p, b), opts);
+  if (s.left) face([x0, y0, z1], [0, dy, 0], [0, 0, -dz], (p) => res(s.left, p, b), opts);
+}
+/** Shading for a box seen from every side (adds back and left faces). */
+function shadedAll(base, o = {}) {
+  return { ...shaded(base, o), back: o.back ?? dk(base, 0.18), left: o.left ?? dk(base, 0.26) };
 }
 /** Solid box shading: lit top with a 1px highlight on its front edges, darker side, crisp corner. */
 function shaded(base, o = {}) {
@@ -221,6 +228,7 @@ function wallSurface(p, u, base, cornerDist) {
 }
 
 const RUG = B(46, 124, 58, 112, 0, 0);
+const CHAIR = { x: 74, y: 82 }; // where the gaming chair stands (its swivel axis), on the rug in front of the desk
 const CABLE = Array.from({ length: 80 }, (_, i) => {
   const t = i / 79;
   return [27 - 26 * t, 119 - 8 * t + 5 * Math.sin(Math.PI * t)];
@@ -262,7 +270,7 @@ function floorTop(p) {
   const wd = Math.min(X, Y);
   if (wd < 7 && dith((1 - wd / 7) * 0.9, px, py)) c = dk(c, 0.25);
   if (X > 12 && X < 153 && Y < 48 && dith(Math.min(1, Math.min(48 - Y, X - 12, 153 - X) / 4), px, py)) c = dk(c, 0.38);
-  for (const [cx, cy, r] of [[14, 76, 8], [27, 117, 6]]) {
+  for (const [cx, cy, r] of [[14, 76, 8], [27, 117, 6], [CHAIR.x, CHAIR.y, 12]]) {
     const d = Math.hypot(X - cx, Y - cy);
     if (d < r && dith(Math.min(1, (r - d) / 3), px, py)) c = dk(c, 0.3);
   }
@@ -688,6 +696,94 @@ group('lamp', () => {
   }
 });
 
+/* ====================== GAMING CHAIR (Racer) + THE POODLE ====================== */
+// The chair faces the desk (-Y) and swivels around CHAIR to face you when clicked, so every side is drawn.
+// Its +Y face is the chair's back (what you see first); its -Y face is the cushioned side.
+const RACER = { top: 60, body: dk(C.surface, 0.45), trim: C.accent, pipe: C.accent2 };
+
+group('chair', () => {
+  const { x: cx, y: cy } = CHAIR;
+  const { top, body, trim, pipe } = RACER;
+  // five-star base with wheels, and the gas lift
+  box(B(cx - 9, cx + 9, cy - 1, cy + 1, 1.5, 3), shadedAll(C.metalDark));
+  box(B(cx - 1, cx + 1, cy - 9, cy + 9, 1.5, 3), shadedAll(C.metalDark));
+  for (const [dx, dy] of [[-9, 0], [9, 0], [0, -9], [0, 9]]) box(B(cx + dx - 1, cx + dx + 1, cy + dy - 1, cy + dy + 1, 0, 1.5), shadedAll(dk(C.metalDark, 0.3)));
+  box(B(cx - 1, cx + 1, cy - 1, cy + 1, 3, 18), shadedAll(C.metal));
+  // seat: orange side stripes, lavender piping, stitched centre
+  box(B(cx - 10, cx + 10, cy - 10, cy + 9, 18, 23), {
+    ...shadedAll(body),
+    top: (p) => {
+      const e = Math.min(p.X - (cx - 10), cx + 10 - p.X);
+      if (e < 0.5) return pipe;
+      if (e < 2.5) return trim;
+      return (((p.Y - cy) % 3) + 3) % 3 < 0.5 ? dk(body, 0.35) : lit(body, 0.06);
+    },
+    front: (p) => (p.Z > 23 - E ? pipe : body),
+    back: (p) => (p.Z > 23 - E ? pipe : lit(body, 0.05)),
+  });
+  // backrest: +Y = the chair's back (racing stripes), -Y = the cushion you lean on
+  box(B(cx - 10, cx + 10, cy + 8, cy + 11, 23, top), {
+    ...shadedAll(body),
+    top: pipe,
+    front: (p) => (Math.abs(Math.abs(p.X - cx) - 5) < 0.75 ? trim : Math.min(p.X - (cx - 10), cx + 10 - p.X, top - p.Z) < 0.5 ? pipe : body),
+    back: (p) => (Math.abs(p.X - cx) > 6 ? dk(trim, 0.1) : (((p.Z - 23) % 3) + 3) % 3 < 0.5 ? dk(body, 0.35) : lit(body, 0.08)),
+  });
+  for (const x of [cx - 11, cx + 8]) box(B(x, x + 3, cy + 6, cy + 11, 23, top - 6), shadedAll(trim)); // side bolsters
+  box(B(cx - 5, cx + 5, cy + 6.5, cy + 8, top - 11, top - 5), shadedAll(mix(C.text, C.muted, 0.2))); // headrest pillow
+  for (const x of [cx - 12, cx + 10.5]) {
+    box(B(x, x + 1.5, cy - 1, cy + 1, 18, 28), shadedAll(C.metal)); // armrest posts
+    box(B(x - 0.5, x + 2, cy - 6, cy + 4, 28, 29.5), { ...shadedAll(dk(body, 0.2)), top: (p) => (p.X > x + 1.5 || p.X < x ? pipe : dk(body, 0.2)) });
+  }
+});
+
+/** Pixel poodle sitting and facing you: cream curly coat, dark round eyes, peachy floppy ears, lavender collar. */
+function drawDog(frame) {
+  const cv = new PixelCanvas(28, 30);
+  const coat = C.text, coat2 = mix(C.text, C.muted, 0.45), ear = mix(C.text, C.accent, 0.3), ear2 = mix(ear, C.desk, 0.3);
+  const ell = (cx, cy, rx, ry) => (x, y) => ((x + 0.5 - cx) / rx) ** 2 + ((y + 0.5 - cy) / ry) ** 2 <= 1;
+  const curly = (a, b) => (x, y) => ((x * 3 + y * 5) % 7 === 0 || (x * 5 + y * 3) % 11 === 0 ? b : a);
+  const paint = (test, col) => {
+    for (let y = 0; y < 30; y++) for (let x = 0; x < 28; x++) if (test(x, y)) cv.set(x, y, typeof col === 'function' ? col(x, y) : col);
+  };
+  // tail (a fluffy pom-pom peeking out at the side), body and front legs
+  paint(ell(23, 19.5, 2.4, 2.4), curly(coat, coat2));
+  paint(ell(14, 22, 8, 6.5), curly(coat, coat2));
+  paint((x, y) => y >= 22 && y <= 28 && ((x >= 9 && x <= 12) || (x >= 15 && x <= 18)), curly(coat, coat2));
+  paint((x, y) => y === 28 && (x === 10 || x === 11 || x === 16 || x === 17), coat2); // toes
+  // collar + tag
+  paint((x, y) => (y === 17 || y === 18) && x >= 9 && x <= 18, (x, y) => (y === 17 ? C.accent2 : dk(C.accent2, 0.3)));
+  paint((x, y) => (x === 13 || x === 14) && (y === 19 || y === 20), (x, y) => (y === 19 ? lit(C.accent2, 0.5) : C.accent2));
+  // head with a fluffy topknot, floppy ears, lighter muzzle
+  paint(ell(14, 11, 7.5, 7), curly(coat, coat2));
+  paint(ell(14, 5, 5, 3.5), curly(coat, coat2));
+  paint(ell(6.5, 12.5, 2.6, 5.5), curly(ear, ear2));
+  paint(ell(21.5, 12.5, 2.6, 5.5), curly(ear, ear2));
+  paint(ell(14, 15, 3.6, 2.6), lit(coat, 0.3));
+  // eyes (with a highlight) and nose
+  paint((x, y) => y >= 9 && y <= 11 && (x === 10 || x === 11 || x === 16 || x === 17), C.shadow); // big round eyes
+  cv.set(11, 9, lit(C.muted, 0.5)); // sparkle
+  cv.set(17, 9, lit(C.muted, 0.5));
+  paint((x, y) => (y === 13 && x >= 12 && x <= 15) || (y === 14 && (x === 13 || x === 14)), C.shadow);
+  // mouth
+  const tongue = lit(C.horizon, 0.35);
+  if (frame === 'bark') {
+    paint((x, y) => y >= 16 && y <= 18 && x >= 11 && x <= 16, mix(C.shadow, C.horizon, 0.25));
+    cv.set(12, 16, C.text);
+    cv.set(15, 16, C.text);
+    paint((x, y) => y === 18 && (x === 13 || x === 14), tongue);
+  } else {
+    paint((x, y) => y === 16 && x >= 12 && x <= 15, mix(C.shadow, C.horizon, 0.25));
+    paint((x, y) => (y === 17 && (x === 13 || x === 14)) || (y === 18 && x === 13), tongue);
+  }
+  cv.innerOutline(C.shadow, 0.55);
+  return cv;
+}
+const DOG_SIZE = [14, 15]; // room units (28 x 30 art pixels)
+group('dog', () => {
+  for (const frame of ['idle', 'bark'])
+    face([CHAIR.x, CHAIR.y, 23 + DOG_SIZE[1] / 2], [DOG_SIZE[0], 0, 0], [0, 0, -DOG_SIZE[1]], null, { canvas: drawDog(frame), billboard: true, state: frame });
+});
+
 /* ====================== LAMP LIGHT (shown when the lamp is on) ====================== */
 const LAMP = { x: 27, y: 117 };
 group('glow', () => {
@@ -806,6 +902,13 @@ const scene = {
       return [name, { center, label, faces: g.faces.map(faceCss) }];
     }),
   ),
+  // gaming chair: swivel axis, backrest height, and where the poodle's head is
+  chair: {
+    x: CHAIR.x,
+    y: CHAIR.y,
+    dogTop: 23 + DOG_SIZE[1],
+    top: RACER.top, // height of the backrest
+  },
   // HTML panels placed just in front of a face
   screen: panel([SCREEN.x0, SCREEN.y + 0.15, SCREEN.z1], [SCREEN.x1 - SCREEN.x0, 0, 0], [0, 0, -(SCREEN.z1 - SCREEN.z0)]),
   clock: panel([DISPLAY.x0, CLOCK.y1 + 0.15, DISPLAY.z1], [DISPLAY.x1 - DISPLAY.x0, 0, 0], [0, 0, -(DISPLAY.z1 - DISPLAY.z0)]),
