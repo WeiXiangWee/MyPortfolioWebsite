@@ -12,9 +12,9 @@
   --sky-top: var(--scene-sky);
   --sky-bottom: var(--scene-horizon);
   --sun-color: var(--scene-sun);
-  --sun-x: 28%;
-  --sun-y: 42%;
-  --sun-size: 40px;
+  --sun-x: 32%; /* positions are % of the sky panel; the window shows roughly x 15–60%, y 12–56% */
+  --sun-y: 37%;
+  --sun-size: 44px;
   --stars: 0.35;
   --lights: 0.9;
   --spill: color-mix(in srgb, var(--scene-sun) 14%, transparent);
@@ -28,8 +28,8 @@
   --sky-top: var(--scene-sky-dawn);
   --sky-bottom: var(--scene-horizon-dawn);
   --sun-color: var(--scene-sun-dawn);
-  --sun-x: 58%;
-  --sun-y: 38%;
+  --sun-x: 46%;
+  --sun-y: 31%;
   --stars: 0.1;
   --lights: 0.5;
   --spill: color-mix(in srgb, var(--scene-sun-dawn) 14%, transparent);
@@ -39,9 +39,9 @@
   --sky-top: var(--scene-sky-day);
   --sky-bottom: var(--scene-horizon-day);
   --sun-color: var(--scene-sun-day);
-  --sun-x: 46%;
-  --sun-y: 16%;
-  --sun-size: 34px;
+  --sun-x: 34%;
+  --sun-y: 15%;
+  --sun-size: 38px;
   --stars: 0;
   --lights: 0;
   --spill: color-mix(in srgb, var(--scene-sun-day) 20%, transparent);
@@ -51,9 +51,9 @@
   --sky-top: var(--scene-sky-night);
   --sky-bottom: var(--scene-horizon-night);
   --sun-color: var(--scene-moon);
-  --sun-x: 24%;
-  --sun-y: 20%;
-  --sun-size: 24px;
+  --sun-x: 22%;
+  --sun-y: 16%;
+  --sun-size: 28px;
   --stars: 1;
   --lights: 1;
   --spill: color-mix(in srgb, var(--color-accent-2) 8%, transparent);
@@ -370,18 +370,20 @@
   height: 2px;
   background: var(--scene-moon);
   box-shadow:
-    40px 30px var(--scene-moon),
-    110px 14px var(--scene-moon),
-    200px 44px var(--scene-moon),
-    150px 90px var(--scene-moon),
-    70px 120px var(--scene-moon),
-    240px 110px var(--scene-moon),
-    20px 160px var(--scene-moon),
-    180px 150px var(--scene-moon),
-    300px 20px var(--scene-moon),
-    320px 80px var(--scene-moon),
-    270px 140px var(--scene-moon),
-    90px 70px var(--scene-moon);
+    90px 70px var(--scene-moon),
+    150px 92px var(--scene-moon),
+    230px 66px var(--scene-moon),
+    280px 120px var(--scene-moon),
+    120px 140px var(--scene-moon),
+    200px 160px var(--scene-moon),
+    260px 180px var(--scene-moon),
+    95px 175px var(--scene-moon),
+    175px 118px var(--scene-moon),
+    300px 80px var(--scene-moon),
+    140px 200px var(--scene-moon),
+    240px 100px var(--scene-moon),
+    110px 105px var(--scene-moon),
+    285px 150px var(--scene-moon);
   opacity: var(--stars);
   transition: opacity 4s var(--ease);
   animation: twinkle 3s steps(2) infinite;

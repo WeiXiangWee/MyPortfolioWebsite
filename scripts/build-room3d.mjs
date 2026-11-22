@@ -709,7 +709,9 @@ group('glow', () => {
 });
 
 /* ====================== SKY + SKYLINE (outside, behind the window) ====================== */
-const SKY = { x: -14, y0: 36, y1: 124, z0: 36, z1: 124, horizonZ: 80 };
+// Just behind the wall's outer face and almost as big as the wall: the wall always hides it from outside,
+// and every view through the window, even at a steep angle, still lands on sky.
+const SKY = { x: -T - 0.5, y0: 2, y1: RD - 4, z0: -4, z1: RH - 2, horizonZ: 66 };
 {
   const w = (SKY.y1 - SKY.y0) * TX, h = (SKY.z1 - SKY.z0) * TX, HORIZON = (SKY.z1 - SKY.horizonZ) * TX;
   const city = new PixelCanvas(w, h), lights = new PixelCanvas(w, h);
@@ -729,8 +731,8 @@ const SKY = { x: -14, y0: 36, y1: 124, z0: 36, z1: 124, horizonZ: 80 };
       x += bw;
     }
   };
-  skyline(8, 16, 4, 30, far, mix(far, C.sky, 0.15), false);
-  skyline(6, 14, -6, 40, near, near2, true);
+  skyline(8, 16, 4, 22, far, mix(far, C.sky, 0.15), false);
+  skyline(6, 14, -6, 30, near, near2, true);
   city.rect(0, HORIZON + 24, w, h, near2);
   city.save(`${OUT}/skyline.png`);
   lights.save(`${OUT}/skyline-lights.png`);
