@@ -5,6 +5,7 @@
   - Only plays while sound is switched on (the speaker button), fading in and out.
   - Sits below the effects: the track is mastered about 10 dB louder than the
     effects, so it plays at 25% (−12 dB) and dips to half whenever an effect plays.
+  - Muting is final: every playing copy is stopped and the audio engine is paused.
   - Pauses while the tab is hidden.
 */
 const MUSIC_URL = '/music/dusk-lofi-loop.mp3';
@@ -16,9 +17,10 @@ const FADE_OUT = 0.6; // seconds
 export function createMusic() {
   let ctx = null;
   let gain = null;
-  let source = null;
   let buffer = null;
   let wanted = false;
+  let stopTimer = 0;
+  const sources = new Set(); // every copy that's playing, so mute can stop them all
 
   function ensureContext() {
     if (ctx) return;
@@ -32,7 +34,7 @@ export function createMusic() {
       .catch(() => null); // no music is fine; the site works without it
   }
 
-  /** Glide the volume to a value over a few seconds (no clicks or jumps). */
+  /** Glide the volume to a value (no clicks or jumps). */
   function rampTo(value, seconds) {
     const t = ctx.currentTime;
     gain.gain.cancelScheduledValues(t);
@@ -40,42 +42,53 @@ export function createMusic() {
     gain.gain.linearRampToValueAtTime(value, t + seconds);
   }
 
+  function stopAllSources() {
+    for (const s of sources) {
+      try {
+        s.stop();
+      } catch {
+        /* already stopped */
+      }
+    }
+    sources.clear();
+  }
+
   /** Start (or keep) playing. Browsers only allow this after the visitor has clicked or pressed a key. */
   async function start() {
     wanted = true;
+    clearTimeout(stopTimer);
     ensureContext();
     if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
     const audio = await buffer;
+    // the visitor may have muted while we were waiting; never start in that case
     if (!audio || !wanted || ctx.state !== 'running') return;
-    if (!source) {
-      source = ctx.createBufferSource();
+    if (sources.size === 0) {
+      const source = ctx.createBufferSource();
       source.buffer = audio;
       source.loop = true;
       source.connect(gain);
       source.start();
+      sources.add(source);
     }
     rampTo(MUSIC_VOLUME, FADE_IN);
   }
 
-  /** Fade out and stop. */
+  /** Fade out, then stop every copy and pause the audio engine so nothing keeps playing. */
   function stop() {
     wanted = false;
     if (!ctx) return;
     rampTo(0, FADE_OUT);
-    const old = source;
-    source = null;
-    setTimeout(() => {
-      try {
-        old?.stop();
-      } catch {
-        /* already stopped */
-      }
+    clearTimeout(stopTimer);
+    stopTimer = setTimeout(() => {
+      if (wanted) return; // switched back on during the fade
+      stopAllSources();
+      ctx.suspend().catch(() => {});
     }, FADE_OUT * 1000 + 50);
   }
 
   /** Briefly lower the music so a sound effect cuts through, then bring it back. */
   function duck() {
-    if (!ctx || !source || !wanted) return;
+    if (!ctx || !sources.size || !wanted) return;
     const t = ctx.currentTime;
     const g = gain.gain;
     g.cancelScheduledValues(t);
@@ -92,5 +105,14 @@ export function createMusic() {
     else if (wanted) start();
   }
 
-  return { start, stop, duck, setHidden };
+  /** Shut everything down (page unload, or the sound system being replaced). */
+  function dispose() {
+    wanted = false;
+    clearTimeout(stopTimer);
+    stopAllSources();
+    ctx?.close().catch(() => {});
+    ctx = gain = buffer = null;
+  }
+
+  return { start, stop, duck, setHidden, dispose };
 }

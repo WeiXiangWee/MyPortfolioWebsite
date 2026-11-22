@@ -346,7 +346,7 @@ group('walls', () => {
 });
 
 /* ====================== FURNITURE ====================== */
-const contact = [B(58, 82, 3, 11), B(34, 80, 24, 32), B(88, 96, 25, 32), B(120, 134, 25, 38), B(128, 148, 2, 24), B(16, 26, 23, 31), B(22, 26, 34, 38), B(102, 113, 27, 38), B(84, 100, 20, 36)];
+const contact = [B(58, 82, 3, 11), B(32, 82, 20, 41), B(88, 96, 25, 32), B(120, 134, 25, 38), B(128, 148, 2, 24), B(16, 26, 23, 31), B(22, 26, 34, 38), B(102, 113, 27, 38), B(84, 100, 20, 36)];
 group('furniture', () => {
   box(B(14, 18, 2, 42, 0, 36), { ...shaded(C.desk), front: (p, b) => (b.x1 - p.X < E ? lit(C.desk, 0.14) : p.Z > 34 ? dk(C.desk, 0.3) : C.desk) });
   box(B(112, 150, 2, 42, 0, 36), {
@@ -434,35 +434,96 @@ group('decor', () => {
     },
     side: dk(C.surface2, 0.35),
   });
-  // keyboard with keycaps painted on its top
-  const keyCol = (r, i) => {
-    if ((r === 1 && i >= 1 && i <= 3) || (r === 2 && i === 2)) return C.accent2;
-    if (i === 14 && (r === 1 || r === 2)) return C.accent;
-    if (r === 0 && i === 0) return C.horizon;
-    return mix(C.muted, C.surface, 0.3);
-  };
-  box(B(34, 80, 24, 32, 40, 42), {
-    ...shaded(C.metalDark),
-    top: (p, b) => {
-      if (b.y1 - p.Y < E || b.x1 - p.X < E) return lit(C.metalDark, 0.3);
-      const r = Math.floor((p.Y - 24.5) / 2), dy = p.Y - 24.5 - r * 2;
-      if (r < 0 || r > 3 || dy > 1.5) return C.metalDark;
-      let x0, w;
-      if (r === 3 && p.X > 47 && p.X < 62.5) (x0 = 47), (w = 15.5);
-      else {
-        const i = Math.floor((p.X - 35) / 3);
-        if (i < 0 || i > 14 || (r === 3 && i >= 4 && i <= 9)) return C.metalDark;
-        (x0 = 35 + i * 3), (w = 2.5);
+  // Keyboard: wx's Rainy 75 (WOB). Silver aluminium case, white keycaps, black Esc / Enter / spacebar,
+  // a 75% layout (split F-row, nav column on the right, arrows in the corner) and the rain-cloud badge.
+  // Each row of keys is its own raised strip, so the keys have real height when the room turns.
+  const KB = B(32, 82, 20, 41, 40, 41.5); // aluminium case
+  const KEYS_X = 33, KEY_Z0 = 41.5, KEY_Z1 = 43, KEY_DEPTH = 2.5, GAP = 0.5;
+  const silver = mix(C.muted, C.text, 0.55);
+  const plate = mix(C.shadow, C.horizon, 0.18); // the dark plate between the keys
+  const keyWhite = C.text;
+  const keyBlack = mix(C.surface, C.muted, 0.08); // charcoal, a step lighter than the plate so it reads as a key
+  // rows: [front-to-back y, [width, kind]...]  kind: 'w' white key, 'k' black key, '-' gap, 'logo' cloud badge
+  const four = [[3, 'w'], [3, 'w'], [3, 'w'], [3, 'w']];
+  const keys = (n, w = 3) => Array.from({ length: n }, () => [w, 'w']);
+  const ROWS = [
+    [21, [[3, 'k'], [1, '-'], ...four, [1, '-'], ...four, [1, '-'], ...four, [3, 'w'], [3, 'w']]], // Esc, F1–F12, Del, Home
+    [25, [...keys(13), [6, 'w'], [3, 'w']]], // ` 1–0 - =, Backspace, End
+    [28, [[4.5, 'w'], ...keys(12), [4.5, 'w'], [3, 'w']]], // Tab, Q–], \, PgUp
+    [31, [[5, 'w'], ...keys(11), [7, 'k'], [3, 'w']]], // Caps, A–', Enter, PgDn
+    [34, [[7, 'w'], ...keys(10), [5, 'w'], [3, 'w'], [3, 'logo']]], // Shift, Z–/, Shift, ↑, rain cloud
+    [37, [[4, 'w'], [4, 'w'], [4, 'w'], [19, 'k'], [4, 'w'], [4, 'w'], [3, 'w'], [3, 'w'], [3, 'w']]], // Ctrl Win Alt, Space, Fn Ctrl, ← ↓ →
+  ];
+  const CLOUD = ['..XX..', '.XXXX.', 'XXXXXX', '......', 'X.X.X.']; // 6 x 5 art pixels
+  // where the cloud badge sits (worked out first, because the case is painted before the keys)
+  const logo = (() => {
+    for (const [y0, row] of ROWS) {
+      let x = KEYS_X;
+      for (const [w, kind] of row) {
+        if (kind === 'logo') return { x0: x, x1: x + w - GAP, y0, y1: y0 + KEY_DEPTH };
+        x += w;
       }
-      const dx = p.X - x0;
-      if (dx < 0 || dx > w) return C.metalDark;
-      const col = r === 3 && w > 3 ? mix(C.muted, C.surface, 0.3) : keyCol(r, Math.floor((p.X - 35) / 3));
-      if (dy > 1.5 - E) return dk(col, 0.4); // key's front edge
-      if (dx > w - E) return dk(col, 0.25);
-      if (dy < E || dx < E) return lit(col, 0.25);
-      return col;
+    }
+    return null;
+  })();
+
+  // the case: silver bezel with a highlight, dark plate inside, and the cloud badge
+  box(KB, {
+    top: (p, b) => {
+      const { X, Y } = p;
+      if (logo && X > logo.x0 && X < logo.x1 && Y > logo.y0 && Y < logo.y1) {
+        const cx = Math.floor((X - logo.x0) * 2), cy = Math.floor((Y - logo.y0) * 2);
+        return CLOUD[cy]?.[cx] === 'X' ? mix(silver, C.shadow, 0.3) : lit(silver, 0.1);
+      }
+      const inner = X > KEYS_X && X < KEYS_X + 48 && Y > 21 && Y < 40;
+      if (inner) return plate;
+      if (b.y1 - Y < E || b.x1 - X < E) return lit(silver, 0.35);
+      return lit(silver, 0.12);
     },
+    front: (p, b) => (b.x1 - p.X < E ? lit(silver, 0.2) : p.Z > KB.z1 - E ? lit(silver, 0.25) : silver),
+    side: (p) => (p.Z > KB.z1 - E ? dk(silver, 0.1) : dk(silver, 0.25)),
   });
+
+  // key rows, split into strips wherever there's a gap or the badge
+  for (const [y0, row] of ROWS) {
+    let x = KEYS_X;
+    let strip = [];
+    const flush = () => {
+      if (!strip.length) return;
+      const sx0 = strip[0].x0, sx1 = strip[strip.length - 1].x1 - GAP;
+      const placed = strip;
+      const keyAt = (X) => placed.find((k) => X >= k.x0 && X < k.x1);
+      const colorOf = (k) => (k.kind === 'k' ? keyBlack : keyWhite);
+      box(B(sx0, sx1, y0, y0 + KEY_DEPTH, KEY_Z0, KEY_Z1), {
+        top: (p, b) => {
+          const k = keyAt(p.X);
+          if (!k || p.X > k.x1 - GAP) return plate; // gap between two keys
+          const col = colorOf(k);
+          const dx = p.X - k.x0, dy = p.Y - y0;
+          // a tiny legend mark at the top-left of each key (dark on white, light on black)
+          if (dx > 0.5 && dx < 1 && dy > 0.5 && dy < 1) return k.kind === 'k' ? mix(C.text, keyBlack, 0.3) : mix(C.shadow, C.muted, 0.4);
+          if (b.y1 - p.Y < E) return dk(col, 0.18); // front edge
+          if (p.Y - b.y0 < E || dx < E) return lit(col, k.kind === 'k' ? 0.3 : 0.2); // back + left edge catch the light
+          if (k.x1 - GAP - p.X < E) return dk(col, 0.12); // right edge
+          return col;
+        },
+        front: (p) => {
+          const k = keyAt(p.X);
+          if (!k || p.X > k.x1 - GAP) return dk(plate, 0.2);
+          const col = colorOf(k);
+          return p.Z < KEY_Z0 + E ? dk(col, 0.35) : dk(col, 0.14);
+        },
+        side: (p) => dk(colorOf(placed[placed.length - 1]), 0.3),
+      });
+      strip = [];
+    };
+    for (const [w, kind] of row) {
+      if (kind === '-' || kind === 'logo') flush();
+      else strip.push({ x0: x, x1: x + w, kind });
+      x += w;
+    }
+    flush();
+  }
   box(B(84, 100, 20, 36, 40, 40.5), {
     top: (p, b) => {
       const e = Math.min(p.X - b.x0, b.x1 - p.X, p.Y - b.y0, b.y1 - p.Y);

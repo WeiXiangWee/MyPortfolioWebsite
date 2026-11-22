@@ -33,6 +33,21 @@ export function SoundProvider({ children }) {
     }
   }, []);
 
+  // Shut the music down completely when the app goes away (also on dev hot-reloads)
+  useEffect(() => {
+    const m = music.current;
+    return () => m.dispose();
+  }, []);
+
+  // Keep every open tab of the site in sync: muting in one tab mutes the others too
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === STORAGE_KEY) setEnabled(e.newValue === 'true');
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
   // Background music follows the sound switch
   useEffect(() => {
     const m = music.current;
