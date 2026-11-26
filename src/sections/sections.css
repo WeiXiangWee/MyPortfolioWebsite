@@ -33,6 +33,50 @@
 }
 
 /* ---------- Projects ---------- */
+/* Category filter bar under the Projects heading */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+.filter-bar__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-thin) solid var(--color-line);
+  background: var(--color-bg);
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+.filter-bar__btn:hover {
+  border-color: var(--color-accent-2);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+.filter-bar__btn[aria-pressed='true'] {
+  border-color: var(--color-shadow);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  box-shadow: var(--shadow-sm);
+}
+.filter-bar__btn:active {
+  translate: 2px 2px;
+}
+.filter-bar__count {
+  font-family: var(--font-pixel);
+  font-size: var(--pixel-xs);
+  line-height: 1;
+  opacity: 0.75;
+}
+
 .project__shot {
   width: 100%;
   aspect-ratio: 16 / 9;

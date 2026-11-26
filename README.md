@@ -58,7 +58,7 @@ The speaker button also plays quiet background music (`public/music/dusk-lofi-lo
 
 ## Filling in content
 
-Open `src/data/content.js` and replace each `[PLACEHOLDER]`. Placeholders show on the site with a dashed underline. Links that are still placeholders render as plain text, so the site never ships a broken link. Images (`screenshot`, `avatar`) and the CV (`resumeUrl`) take paths to files in `public/`, e.g. `'/resume.pdf'`.
+Open `src/data/content.js` and replace each `[PLACEHOLDER]`. Each project has a `categories` list; the names come from `projectCategories`, which sets the filter buttons under the Projects heading (a button only appears once a project uses it, and the chosen filter shows in the URL, e.g. `/portfolio/projects?category=devops`). Placeholders show on the site with a dashed underline. Links that are still placeholders render as plain text, so the site never ships a broken link. Images (`screenshot`, `avatar`) and the CV (`resumeUrl`) take paths to files in `public/`, e.g. `'/resume.pdf'`.
 
 In `index.html`, set `og:image` and `og:url` once the site has a live URL.
 

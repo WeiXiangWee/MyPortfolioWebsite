@@ -54,9 +54,28 @@ const projectPlaceholder = {
   github: "[GITHUB LINK]",
   demo: "[LIVE DEMO LINK]",
 };
+// Categories for the filter bar under the Projects heading, in the order they appear.
+// A category only shows up once at least one project uses it.
+export const projectCategories = [
+  "Web development",
+  "DevOps",
+  "Data analytics",
+  "AI / automation",
+  "Design",
+];
+
+// Placeholder categories so the filter bar has something to show.
+// Replace with each project's real categories (one or more names from projectCategories).
+const placeholderCategories = [
+  ["Web development"],
+  ["Web development", "AI / automation"],
+  ["DevOps"],
+  ["Data analytics"],
+];
 export const projects = [1, 2, 3, 4].map((n) => ({
   id: `project-${n}`,
   ...projectPlaceholder,
+  categories: placeholderCategories[n - 1],
 }));
 
 export const certifications = [1, 2, 3].map((n) => ({

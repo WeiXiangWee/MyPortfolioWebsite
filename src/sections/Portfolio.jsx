@@ -1,7 +1,8 @@
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { useRef } from 'react';
 import { PORTFOLIO_TABS, SECTIONS } from '../data/sections.js';
-import { projects, certifications, community } from '../data/content.js';
+import { projects, projectCategories, certifications, community } from '../data/content.js';
+import { useSound } from '../hooks/useSound.jsx';
 import { Txt, SmartLink, isPlaceholder } from '../components/Placeholder.jsx';
 import { Reveal } from '../components/Reveal.jsx';
 
@@ -56,16 +57,73 @@ export function Portfolio({ tab }) {
 
 const SPANS = ['tile--wide', 'tile--narrow', 'tile--narrow', 'tile--wide'];
 
+/** 'AI / automation' -> 'ai-automation' (used in the URL, e.g. /portfolio/projects?category=devops) */
+const slugify = (label) =>
+  label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+
+// Only categories that at least one project uses get a button, in the order set in content.js
+const CATEGORIES = projectCategories
+  .map((label) => ({
+    label,
+    slug: slugify(label),
+    count: projects.filter((p) => p.categories?.includes(label)).length,
+  }))
+  .filter((c) => c.count > 0);
+
 function Projects() {
+  const [params, setParams] = useSearchParams();
+  const { play } = useSound();
+  const active = CATEGORIES.find((c) => c.slug === params.get('category')) ?? null;
+  const shown = active ? projects.filter((p) => p.categories?.includes(active.label)) : projects;
+
+  const choose = (slug) => {
+    play('click');
+    // replace, so flicking through categories doesn't fill up the back button
+    setParams(slug ? { category: slug } : {}, { replace: true, preventScrollReset: true });
+  };
+
   return (
     <>
       <div className="section-head">
         <h3>Projects</h3>
         <p>Problem, my role, the tech and the result for each build.</p>
       </div>
-      <ul className="bento">
-        {projects.map((p, i) => (
-          <Reveal as="li" key={p.id} className={`tile project ${SPANS[i % SPANS.length]}`} index={i}>
+
+      {CATEGORIES.length > 1 && (
+        <div className="filter-bar" role="group" aria-label="Filter projects by category">
+          <button type="button" className="filter-bar__btn" aria-pressed={!active} onClick={() => choose(null)}>
+            All <span className="filter-bar__count">{projects.length}</span>
+          </button>
+          {CATEGORIES.map((c) => (
+            <button
+              key={c.slug}
+              type="button"
+              className="filter-bar__btn"
+              aria-pressed={active?.slug === c.slug}
+              onClick={() => choose(c.slug)}
+            >
+              {c.label} <span className="filter-bar__count">{c.count}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <p className="visually-hidden" aria-live="polite">
+        {active ? `Showing ${shown.length} ${active.label} projects` : `Showing all ${shown.length} projects`}
+      </p>
+
+      {/* keyed on the category so the tiles slide in again after each switch */}
+      <ul className="bento" key={active?.slug ?? 'all'}>
+        {shown.map((p, i) => (
+          <Reveal
+            as="li"
+            key={p.id}
+            className={`tile project ${shown.length === 1 ? 'tile--full' : SPANS[i % SPANS.length]}`}
+            index={i}
+          >
             {isPlaceholder(p.screenshot) ? (
               <div className="img-placeholder">{p.screenshot}</div>
             ) : (
