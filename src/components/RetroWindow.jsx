@@ -1,6 +1,16 @@
-import { useEffect, useId, useRef } from 'react';
+import { createContext, useContext, useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { PixelIcon } from './PixelIcon.jsx';
 import './RetroWindow.css';
+
+// A spot in the window footer, next to "Back to desk", that content inside the window can fill
+const FooterSlot = createContext(null);
+
+/** Renders its children in the window footer (beside "Back to desk"), or in place if there's no window */
+export function WindowFooterAction({ children }) {
+  const slot = useContext(FooterSlot);
+  return slot ? createPortal(children, slot) : children;
+}
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input, textarea, select, [tabindex]:not([tabindex="-1"])';
 
@@ -13,6 +23,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input, textarea, select, [ta
 export function RetroWindow({ title, phase, onClose, focusKey, children }) {
   const ref = useRef(null);
   const titleId = useId();
+  const [slot, setSlot] = useState(null);
 
   // Move focus into the window when it opens (or when it switches to a different window)
   useEffect(() => {
@@ -67,12 +78,18 @@ export function RetroWindow({ title, phase, onClose, focusKey, children }) {
           </button>
         </div>
       </header>
-      <div className="win__body">{children}</div>
+      <div className="win__body">
+        <FooterSlot.Provider value={slot}>{children}</FooterSlot.Provider>
+      </div>
       <footer className="win__foot">
-        <button type="button" className="btn btn--ghost" onClick={onClose}>
-          <PixelIcon name="back" size={14} />
-          Back to desk
-        </button>
+        <div className="win__foot-actions">
+          {/* e.g. "← All projects" when a project is open */}
+          <div ref={setSlot} className="win__foot-slot" />
+          <button type="button" className="btn btn--ghost" onClick={onClose}>
+            <PixelIcon name="back" size={14} />
+            Back to desk
+          </button>
+        </div>
         <span className="win__hint" aria-hidden="true">
           esc to close
         </span>

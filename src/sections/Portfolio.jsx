@@ -1,10 +1,12 @@
 import { useNavigate, useSearchParams } from 'react-router';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { PORTFOLIO_TABS, SECTIONS } from '../data/sections.js';
-import { projects, projectCategories, certifications, community } from '../data/content.js';
+import { projects, projectCategories, certifications, certificationCategories, community } from '../data/content.js';
 import { useSound } from '../hooks/useSound.jsx';
-import { Txt, SmartLink, isPlaceholder } from '../components/Placeholder.jsx';
+import { ImageCarousel } from '../components/ImageCarousel.jsx';
+import { Txt, SmartLink } from '../components/Placeholder.jsx';
 import { Reveal } from '../components/Reveal.jsx';
+import { WindowFooterAction } from '../components/RetroWindow.jsx';
 
 /** Portfolio window: tabs for Projects / Certifications / Community work (second navigation level). */
 export function Portfolio({ tab }) {
@@ -55,8 +57,6 @@ export function Portfolio({ tab }) {
   );
 }
 
-const SPANS = ['tile--wide', 'tile--narrow', 'tile--narrow', 'tile--wide'];
-
 /** 'AI / automation' -> 'ai-automation' (used in the URL, e.g. /portfolio/projects?category=devops) */
 const slugify = (label) =>
   label
@@ -64,40 +64,51 @@ const slugify = (label) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
 
-// Only categories that at least one project uses get a button, in the order set in content.js
-const CATEGORIES = projectCategories
-  .map((label) => ({
-    label,
-    slug: slugify(label),
-    count: projects.filter((p) => p.categories?.includes(label)).length,
-  }))
-  .filter((c) => c.count > 0);
+/** Filter buttons: only categories that at least one item uses, in the order set in content.js */
+const categoriesFor = (labels, items) =>
+  labels
+    .map((label) => ({ label, slug: slugify(label), count: items.filter((x) => x.categories?.includes(label)).length }))
+    .filter((c) => c.count > 0);
 
-function Projects() {
+const PROJECT_CATEGORIES = categoriesFor(projectCategories, projects);
+const CERT_CATEGORIES = categoriesFor(certificationCategories, certifications);
+
+/**
+ * Shared layout for Projects and Certifications: a category filter bar, a gallery of equal cards,
+ * and a detail view for one item. The filter and the open item live in the URL,
+ * e.g. /portfolio/projects?project=game-library or /portfolio/certifications?cert=unit-testing-python
+ */
+function Showcase({ items, categories, plural, openKey, moreLabel, Card, Detail }) {
   const [params, setParams] = useSearchParams();
   const { play } = useSound();
-  const active = CATEGORIES.find((c) => c.slug === params.get('category')) ?? null;
-  const shown = active ? projects.filter((p) => p.categories?.includes(active.label)) : projects;
+  const active = categories.find((c) => c.slug === params.get('category')) ?? null;
+  const shown = active ? items.filter((x) => x.categories?.includes(active.label)) : items;
+  const open = items.find((x) => x.id === params.get(openKey)) ?? null;
+
+  // change some search params, keep the rest (replace, so it doesn't fill up the back button)
+  const update = (changes) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        for (const [k, v] of Object.entries(changes)) v ? next.set(k, v) : next.delete(k);
+        return next;
+      },
+      { replace: true, preventScrollReset: true },
+    );
 
   const choose = (slug) => {
     play('click');
-    // replace, so flicking through categories doesn't fill up the back button
-    setParams(slug ? { category: slug } : {}, { replace: true, preventScrollReset: true });
+    update({ category: slug, [openKey]: null });
   };
 
   return (
     <>
-      <div className="section-head">
-        <h3>Projects</h3>
-        <p>Problem, my role, the tech and the result for each build.</p>
-      </div>
-
-      {CATEGORIES.length > 1 && (
-        <div className="filter-bar" role="group" aria-label="Filter projects by category">
+      {categories.length > 1 && (
+        <div className="filter-bar" role="group" aria-label={`Filter ${plural} by category`}>
           <button type="button" className="filter-bar__btn" aria-pressed={!active} onClick={() => choose(null)}>
-            All <span className="filter-bar__count">{projects.length}</span>
+            All <span className="filter-bar__count">{items.length}</span>
           </button>
-          {CATEGORIES.map((c) => (
+          {categories.map((c) => (
             <button
               key={c.slug}
               type="button"
@@ -112,62 +123,177 @@ function Projects() {
       )}
 
       <p className="visually-hidden" aria-live="polite">
-        {active ? `Showing ${shown.length} ${active.label} projects` : `Showing all ${shown.length} projects`}
+        {active ? `Showing ${shown.length} ${active.label} ${plural}` : `Showing all ${shown.length} ${plural}`}
       </p>
 
-      {/* keyed on the category so the tiles slide in again after each switch */}
-      <ul className="bento" key={active?.slug ?? 'all'}>
-        {shown.map((p, i) => (
-          <Reveal
-            as="li"
-            key={p.id}
-            className={`tile project ${shown.length === 1 ? 'tile--full' : SPANS[i % SPANS.length]}`}
-            index={i}
+      {/* keyed so the cards slide in again after each switch */}
+      <div className="projects" key={`${active?.slug ?? 'all'}-${open?.id ?? ''}`}>
+        {!open && (
+          <ul className="projects-gallery">
+            {shown.map((item, i) => (
+              <Reveal as="li" key={item.id} index={i}>
+                <button
+                  type="button"
+                  className="tile project-thumb"
+                  onClick={() => {
+                    play('open');
+                    update({ [openKey]: item.id });
+                  }}
+                >
+                  <Card item={item} />
+                  <span className="project-thumb__more">{moreLabel}</span>
+                </button>
+              </Reveal>
+            ))}
+          </ul>
+        )}
+
+        {open && (
+          <DetailView
+            id={open.id}
+            backLabel={`← All ${plural}`}
+            onBack={() => {
+              play('close');
+              update({ [openKey]: null });
+            }}
           >
-            {isPlaceholder(p.screenshot) ? (
-              <div className="img-placeholder">{p.screenshot}</div>
-            ) : (
-              <img className="project__shot" src={p.screenshot} alt={p.screenshotAlt} loading="lazy" />
-            )}
-            <h4>
-              <Txt>{p.name}</Txt>
-            </h4>
-            <dl className="facts">
-              <dt>Problem</dt>
-              <dd>
-                <Txt>{p.problem}</Txt>
-              </dd>
-              <dt>My role</dt>
-              <dd>
-                <Txt>{p.role}</Txt>
-              </dd>
-              <dt>Tech used</dt>
-              <dd>
-                <ul className="chips">
-                  {p.tech.map((t) => (
-                    <li key={t} className="chip">
-                      <Txt>{t}</Txt>
-                    </li>
-                  ))}
-                </ul>
-              </dd>
-              <dt>Result</dt>
-              <dd>
-                <Txt>{p.result}</Txt>
-              </dd>
-            </dl>
-            <div className="links-row">
-              <SmartLink href={p.github} icon="github">
-                GitHub
-              </SmartLink>
-              <SmartLink href={p.demo}>Live demo</SmartLink>
-            </div>
-          </Reveal>
-        ))}
-      </ul>
+            <Detail item={open} />
+          </DetailView>
+        )}
+      </div>
     </>
   );
 }
+
+/** One item at a time, with a way back to the gallery. Focus moves to the item's heading block. */
+function DetailView({ id, backLabel, onBack, children }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    ref.current?.querySelector('[data-detail-head]')?.focus({ preventScroll: true });
+  }, [id]);
+  return (
+    <article ref={ref} className="project-detail">
+      {/* sits in the window footer, next to "Back to desk" */}
+      <WindowFooterAction>
+        <button type="button" className="btn btn--ghost" onClick={onBack}>
+          {backLabel}
+        </button>
+      </WindowFooterAction>
+      {children}
+    </article>
+  );
+}
+
+/** Name, then date and categories underneath */
+function ItemHead({ item, as: Heading = 'h4' }) {
+  return (
+    <div className="project__head">
+      <Heading className="project__name">
+        <Txt>{item.name}</Txt>
+      </Heading>
+      <p className="project__date">
+        {item.date && <Txt>{item.date}</Txt>}
+        {item.categories?.length > 0 && <span className="project__cats">{item.categories.join(' · ')}</span>}
+      </p>
+    </div>
+  );
+}
+
+/* ---------- Projects ---------- */
+
+function Projects() {
+  return (
+    <>
+      <div className="section-head">
+        <h3>Projects</h3>
+        <p>Problem, my role, the tech and the result for each build.</p>
+      </div>
+      <Showcase
+        items={projects}
+        categories={PROJECT_CATEGORIES}
+        plural="projects"
+        openKey="project"
+        moreLabel="View project →"
+        Card={ProjectCard}
+        Detail={ProjectDetail}
+      />
+    </>
+  );
+}
+
+/** Gallery card picture: the project's first image */
+function ProjectShot({ p }) {
+  const first = p.images?.[0];
+  return first ? (
+    <img className="project__shot" src={first.src} alt={first.alt} loading="lazy" />
+  ) : (
+    <div className="img-placeholder project__shot">[SCREENSHOTS]</div>
+  );
+}
+
+function ProjectCard({ item }) {
+  return (
+    <>
+      <ProjectShot p={item} />
+      <ItemHead item={item} />
+    </>
+  );
+}
+
+function ProjectDetail({ item: p }) {
+  return (
+    <>
+      {p.images?.length ? <ImageCarousel images={p.images} label={p.name} /> : <ProjectShot p={p} />}
+      <div className="project-detail__body">
+        <div data-detail-head tabIndex={-1} className="project-detail__head">
+          <ItemHead item={p} />
+          {(p.github || p.demo) && (
+            <div className="links-row">
+              {p.github && (
+                <SmartLink href={p.github} icon="github">
+                  GitHub
+                </SmartLink>
+              )}
+              {p.demo && <SmartLink href={p.demo}>{p.demoLabel ?? 'Live demo'}</SmartLink>}
+            </div>
+          )}
+        </div>
+        <dl className="facts">
+          <dt>Problem</dt>
+          <dd>
+            <Txt>{p.problem}</Txt>
+          </dd>
+          <dt>My role</dt>
+          <dd>
+            <Txt>{p.role}</Txt>
+          </dd>
+          <dt>Tech used</dt>
+          <dd>
+            <Chips items={p.tech} />
+          </dd>
+          <dt>Result</dt>
+          <dd>
+            <Txt>{p.result}</Txt>
+          </dd>
+        </dl>
+      </div>
+    </>
+  );
+}
+
+function Chips({ items }) {
+  return (
+    <ul className="chips">
+      {items.map((t) => (
+        <li key={t} className="chip">
+          <Txt>{t}</Txt>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/* ---------- Certifications ---------- */
 
 function Certifications() {
   return (
@@ -176,31 +302,98 @@ function Certifications() {
         <h3>Certifications</h3>
         <p>Courses and certificates from the shelf.</p>
       </div>
-      <ul className="bento">
-        {certifications.map((c, i) => (
-          <Reveal as="li" key={c.id} className="tile" index={i}>
-            <h4>
-              <Txt>{c.name}</Txt>
-            </h4>
-            <dl className="facts">
-              <dt>Issuer</dt>
-              <dd>
-                <Txt>{c.issuer}</Txt>
-              </dd>
-              <dt>Date</dt>
-              <dd>
-                <Txt>{c.date}</Txt>
-              </dd>
-            </dl>
-            <div className="links-row">
-              <SmartLink href={c.link}>View certificate</SmartLink>
-            </div>
-          </Reveal>
-        ))}
-      </ul>
+      <Showcase
+        items={certifications}
+        categories={CERT_CATEGORIES}
+        plural="certifications"
+        openKey="cert"
+        moreLabel="View certificate →"
+        Card={CertCard}
+        Detail={CertDetail}
+      />
     </>
   );
 }
+
+/**
+ * Certificate picture: the real certificate image when there is one,
+ * otherwise a certificate-style card drawn in the site's own style.
+ */
+function CertCover({ c }) {
+  const first = c.images?.[0];
+  if (first) return <img className="project__shot" src={first.src} alt={first.alt} loading="lazy" />;
+  return (
+    <div className="project__shot cert-cover" aria-hidden="true">
+      <span className="cert-cover__label">Certificate of completion</span>
+      <span className="cert-cover__name">{c.skills?.length ? c.skills.join(' · ') : c.name}</span>
+      <span className="cert-cover__issuer">
+        {c.issuer} · {c.date}
+      </span>
+      <span className="cert-cover__seal" />
+    </div>
+  );
+}
+
+function CertCard({ item }) {
+  return (
+    <>
+      <CertCover c={item} />
+      <ItemHead item={item} />
+    </>
+  );
+}
+
+function CertDetail({ item: c }) {
+  return (
+    <>
+      {c.images?.length ? <ImageCarousel images={c.images} label={c.name} /> : <CertCover c={c} />}
+      <div className="project-detail__body">
+        <div data-detail-head tabIndex={-1} className="project-detail__head">
+          <ItemHead item={c} />
+          {c.link && (
+            <div className="links-row">
+              <SmartLink href={c.link}>View credential</SmartLink>
+            </div>
+          )}
+        </div>
+        <dl className="facts">
+          <dt>Issued by</dt>
+          <dd>
+            <Txt>{c.issuer}</Txt>
+          </dd>
+          <dt>Completed</dt>
+          <dd>
+            <Txt>{c.completed ?? c.date}</Txt>
+          </dd>
+          {(c.length || c.instructor) && (
+            <>
+              <dt>Course</dt>
+              <dd>{[c.length, c.instructor && `taught by ${c.instructor}`].filter(Boolean).join(' · ')}</dd>
+            </>
+          )}
+          {c.credentialId && (
+            <>
+              <dt>Credential ID</dt>
+              <dd className="facts__id">
+                <Txt>{c.credentialId}</Txt>
+              </dd>
+            </>
+          )}
+          {c.skills?.length > 0 && (
+            <>
+              <dt>Skills</dt>
+              <dd>
+                <Chips items={c.skills} />
+              </dd>
+            </>
+          )}
+        </dl>
+      </div>
+    </>
+  );
+}
+
+/* ---------- Community work ---------- */
 
 function Community() {
   return (

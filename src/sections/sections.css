@@ -77,10 +77,140 @@
   opacity: 0.75;
 }
 
+/* project cards use their own grid, not the 6-column bento spans */
+.projects .tile {
+  grid-column: auto;
+}
+
+.project__head {
+  display: grid;
+  gap: var(--space-1);
+}
+.project__name {
+  font-size: var(--pixel-md);
+  color: var(--color-text);
+}
+.project__date {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-3);
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+}
+.project__cats {
+  color: var(--color-accent-2);
+}
+
+/* Gallery of equal cards (two across in the normal window); click one to read it */
+.projects-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: var(--space-4);
+}
+.projects-gallery > li {
+  display: grid;
+}
+.project-thumb {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  text-align: left;
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    translate var(--dur-fast) var(--ease);
+}
+.project-thumb:hover {
+  translate: 0 -3px;
+}
+.project-thumb__more {
+  margin-top: auto;
+  font-family: var(--font-pixel);
+  font-size: var(--pixel-xs);
+  line-height: var(--leading-pixel);
+  color: var(--color-accent);
+}
+.project-detail {
+  display: grid;
+  gap: var(--space-5);
+}
+/* Detail view stacks: screenshot, name + links, then the write-up */
+.project-detail__body {
+  display: grid;
+  gap: var(--space-5);
+}
+.project-detail__head {
+  display: grid;
+  gap: var(--space-3);
+}
+.project-detail__head:focus {
+  outline: none;
+}
+.project-detail .project__name {
+  font-size: var(--pixel-lg);
+}
+/* long certificate IDs wrap instead of pushing the window wider */
+.facts__id {
+  overflow-wrap: anywhere;
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+}
+
+/* Certificate-style card, used when a certification has no picture of its own */
+.cert-cover {
+  position: relative;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-thin) solid var(--color-line);
+  outline: var(--border-thin) dashed var(--color-accent-2);
+  outline-offset: -10px;
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--color-accent-2) 18%, transparent), transparent 70%),
+    var(--color-bg);
+  text-align: center;
+  overflow: hidden;
+}
+.cert-cover__label {
+  font-family: var(--font-pixel);
+  font-size: var(--pixel-xs);
+  line-height: var(--leading-pixel);
+  text-transform: uppercase;
+  color: var(--color-accent-2);
+}
+.cert-cover__name {
+  font-family: var(--font-pixel);
+  font-size: var(--pixel-sm);
+  line-height: var(--leading-pixel);
+  color: var(--color-text);
+}
+.cert-cover__issuer {
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+}
+.cert-cover__seal {
+  position: absolute;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  width: 1.75rem;
+  height: 1.75rem;
+  background: var(--color-accent);
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+.project-detail > .cert-cover .cert-cover__name {
+  font-size: var(--pixel-lg);
+}
+
 .project__shot {
   width: 100%;
   aspect-ratio: 16 / 9;
   object-fit: cover;
+  object-position: top; /* tall page designs show their header, not their middle */
   border: var(--border-thin) solid var(--color-line);
 }
 

@@ -1,0 +1,209 @@
+/* ---------- Project picture carousel ---------- */
+.carousel {
+  display: grid;
+  gap: var(--space-3);
+}
+.carousel__stage {
+  position: relative;
+}
+.carousel__open {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  padding: 0;
+  border: var(--border-thin) solid var(--color-line);
+  background: var(--color-bg);
+  cursor: zoom-in;
+  overflow: hidden;
+}
+.carousel__open:hover {
+  border-color: var(--color-accent-2);
+}
+/* the whole picture is shown (tall page designs too); full screen shows it bigger */
+.carousel__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  animation: carousel-in var(--dur-fast) var(--ease) both;
+}
+@keyframes carousel-in {
+  from {
+    opacity: 0;
+  }
+}
+.carousel__hint {
+  position: absolute;
+  right: var(--space-2);
+  bottom: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-thin) solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-pixel);
+  font-size: var(--pixel-xs);
+  line-height: var(--leading-pixel);
+  opacity: 0.85;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+.carousel__open:hover .carousel__hint,
+.carousel__open:focus-visible .carousel__hint {
+  opacity: 1;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border-color: var(--color-shadow);
+}
+
+/* previous / next */
+.carousel__arrow {
+  position: absolute;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  translate: 0 -50%;
+  border: var(--border-thick) solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+.carousel__arrow:hover {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.carousel__arrow:active {
+  translate: 2px calc(-50% + 2px);
+  box-shadow: none;
+}
+.carousel__arrow--prev {
+  left: var(--space-2);
+}
+.carousel__arrow--next {
+  right: var(--space-2);
+}
+
+/* caption, counter and dots */
+.carousel__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+.carousel__caption {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+.carousel__count {
+  font-family: var(--font-pixel);
+  font-size: var(--pixel-xs);
+  color: var(--color-accent);
+}
+.carousel__dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.carousel__dot {
+  width: 0.75rem;
+  height: 0.75rem;
+  padding: 0;
+  border: var(--border-thin) solid var(--color-muted);
+  background: transparent;
+  cursor: pointer;
+}
+.carousel__dot:hover {
+  border-color: var(--color-accent-2);
+}
+.carousel__dot[aria-current='true'] {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+
+/* ---------- Full-screen view ---------- */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: var(--space-7) calc(var(--space-7) + 2rem);
+  background: color-mix(in srgb, var(--color-shadow) 92%, transparent);
+  cursor: zoom-out;
+  animation: lightbox-in var(--dur-window) var(--ease) both;
+}
+@keyframes lightbox-in {
+  from {
+    opacity: 0;
+  }
+}
+.lightbox__figure {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  cursor: default;
+}
+/* shown at its own size or smaller, never stretched past it (small images stay sharp) */
+.lightbox__img {
+  max-width: 100%;
+  max-height: calc(100vh - 10rem);
+  border: var(--border-thick) solid var(--color-border);
+  box-shadow: var(--shadow-lg);
+  background: var(--color-bg);
+  animation: carousel-in var(--dur-fast) var(--ease) both;
+}
+.lightbox__caption {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+}
+.lightbox__close {
+  position: fixed;
+  top: var(--space-5);
+  right: var(--space-5);
+  width: 2.5rem;
+  height: 2.5rem;
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+.lightbox__close:hover {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.lightbox__arrow {
+  position: fixed;
+  width: 3rem;
+  height: 3rem;
+}
+.lightbox__arrow--prev {
+  left: var(--space-5);
+}
+.lightbox__arrow--next {
+  right: var(--space-5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carousel__img,
+  .lightbox,
+  .lightbox__img {
+    animation: none;
+  }
+}

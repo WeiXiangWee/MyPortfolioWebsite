@@ -1,0 +1,33 @@
+Add real projects, certifications, image carousel and resume download
+
+Projects
+- Replace placeholder projects with 6 real ones: RP Sports Facility
+  Booking System, wx The Workbench, Game Library, Car Knowledge Quiz,
+  Islands of Singapore and City in Nature (SG Green Plan 2030)
+- Add a Mobile development category; categories with no projects hide
+- Switch Projects to a gallery of equal cards; clicking a card opens a
+  detail view with its own URL (?project=...)
+- Add screenshots for every project in public/projects/
+
+Image carousel
+- New ImageCarousel component: previous/next arrows, dots, counter and
+  captions; click a picture to view it full screen
+- Full-screen view closes with Esc, x or the backdrop without closing
+  the window, supports arrow keys and returns focus to the picture
+- Add "next" and "expand" pixel icons
+
+Certifications
+- Add 11 real certifications: 8 LinkedIn Learning courses and 3 Cisco
+  Networking Academy courses, with certificate images in public/certs/
+- Give Certifications the same gallery + detail layout as Projects
+  (shared Showcase component), with category filters, completion date,
+  course length, instructor, credential ID, skills and credential link
+- Draw a certificate-style card for any certification without an image
+
+Window
+- Move the "All projects" / "All certifications" button into the window
+  footer next to "Back to desk"
+
+Resume
+- Add a public copy of the resume (no phone number) and connect the
+  Download CV buttons and the floppy disk to it
